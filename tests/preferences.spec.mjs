@@ -36,15 +36,35 @@ test('category preferences and workspace plugin inventories are scoped, read-onl
     const preferences = page.getByRole('dialog', { name: 'Preferences', exact: true })
     await expect(preferences).toBeVisible()
     await expect(preferences.getByRole('navigation').getByRole('button')).toHaveText(['Appearance', 'Plugins', 'About'])
+    await expect(preferences.locator('.pp-group .pp-row strong')).toHaveText(['Language', 'Theme', 'Font'])
     const language = preferences.locator('.pp-group').getByRole('button', { name: /^Language/ })
     await expect(language).toContainText('English')
     await language.click()
+    // CSS font-size alone cannot detect locale-dependent macOS glyph fallback.
+    const textMetrics = () => page.locator('.sidebar').evaluate(sidebar => {
+      const probe = document.createElement('span')
+      probe.style.cssText = 'position:absolute;white-space:pre;visibility:hidden'
+      probe.textContent = 'Pi Studio 123 中文工作区'
+      sidebar.append(probe)
+      const { width, height } = probe.getBoundingClientRect()
+      const size = getComputedStyle(probe).fontSize
+      probe.remove()
+      return { width, height, size }
+    })
+    const originalMetrics = await textMetrics()
     await expect(preferences.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true')
     await preferences.getByRole('button', { name: '简体中文' }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
-    await expect(page.getByRole('dialog', { name: '偏好设置' }).getByRole('button', { name: '关于' })).toBeVisible()
+    expect(await textMetrics()).toEqual(originalMetrics)
+    const zhPreferences = page.getByRole('dialog', { name: '偏好设置' })
+    await zhPreferences.getByRole('button', { name: '关于' }).click()
+    const projectUrl = 'https://github.com/ymd-physics/pi-studio'
+    await expect(zhPreferences.locator('.pp-about-credit dt')).toHaveText(['作者：', '项目地址：', '说明：'])
+    await expect(zhPreferences.locator('.pp-about-credit dd')).toHaveText(['YM', projectUrl, 'OpenAI 的 GPT 模型辅助开发。由 Pi 驱动。'])
+    await expect(zhPreferences.getByRole('link', { name: projectUrl })).toHaveAttribute('href', projectUrl)
     await page.getByRole('button', { name: '关闭偏好设置' }).click()
     await expect(page.getByRole('textbox', { name: '给 Pi 发消息' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '移除工作区“Research”' })).toHaveAttribute('title', '移除工作区“Research”')
     await page.reload()
     await page.getByRole('button', { name: '偏好设置', exact: true }).click()
     const retained = page.getByRole('button', { name: /^语言/ })
@@ -53,6 +73,7 @@ test('category preferences and workspace plugin inventories are scoped, read-onl
     await expect(page.getByRole('button', { name: '简体中文' })).toHaveAttribute('aria-pressed', 'true')
     await page.getByRole('button', { name: 'English' }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    expect(await textMetrics()).toEqual(originalMetrics)
     await preferences.getByRole('button', { name: 'Plugins', exact: true }).click()
     await expect(preferences).toContainText('global-preview.ts')
     await expect(preferences).not.toContainText('local-preview.ts')
@@ -66,8 +87,9 @@ test('category preferences and workspace plugin inventories are scoped, read-onl
     for (let i = 0; i < 12; i++) { await page.keyboard.press('Tab'); expect(await preferences.evaluate(el => el.contains(document.activeElement))).toBe(true) }
     await preferences.getByRole('button', { name: 'About', exact: true }).click()
     await expect(preferences).toContainText('Pi Studio')
-    await expect(preferences).toContainText('Developed by YM')
-    await expect(preferences).toContainText('Built with assistance from OpenAI’s GPT models.')
+    await expect(preferences.locator('.pp-about-credit dt')).toHaveText(['Author:', 'Repository:', 'Credits:'])
+    await expect(preferences.locator('.pp-about-credit dd')).toHaveText(['YM', projectUrl, 'Built with assistance from OpenAI’s GPT models. Powered by Pi.'])
+    await expect(preferences.getByRole('link', { name: projectUrl })).toHaveAttribute('href', projectUrl)
     await expect(preferences).toContainText('Recommended: Pi ≥ 1.4.0')
     await page.screenshot({ path: 'test-results/studio-about.png' })
     await expect(preferences).toContainText('pi-coding-agent')

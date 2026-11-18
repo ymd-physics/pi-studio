@@ -132,9 +132,10 @@ const markdownComponents: Components = {
       <div>{children}</div>
     )
   },
-  table({ children }) {
+  table: function Table({ children }) {
+    const t = useUiText()
     return (
-      <div className="table-scroll" tabIndex={0} role="region" aria-label="Table">
+      <div className="table-scroll" tabIndex={0} role="region" aria-label={t('Table')}>
         <table>{children}</table>
       </div>
     )
@@ -150,10 +151,11 @@ const markdownComponents: Components = {
       />
     )
   },
-  a({ href, children, node }) {
+  a: function Link({ href, children, node }) {
+    const t = useUiText()
     // Linked images already have an original-file action; never nest anchors.
     if (node?.children.some(child => child.type === 'element' && child.tagName === 'img'))
-      return <span className="linked-markdown-image">{children}<MarkdownLink href={href}>Open linked file</MarkdownLink></span>
+      return <span className="linked-markdown-image">{children}<MarkdownLink href={href}>{t('Open linked file')}</MarkdownLink></span>
     return <MarkdownLink href={href}>{children}</MarkdownLink>
   },
   img({ src, alt }) {

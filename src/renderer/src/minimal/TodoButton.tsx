@@ -43,7 +43,7 @@ export function TodoButton({ state }: { state?: TodoState }) {
   return (
     <div className="todo-control" ref={control}>
       <button type="button" className="todo-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <ListTodo size={14} />{' ' + t("Todo (")}{label})
+        <ListTodo size={14} />{' '}{t('Todo ({status})', { status: t(label) })}
       </button>
       {open && (
         <div className="todo-popover" role="region" aria-label={t("Session todo")}>
@@ -85,7 +85,7 @@ export function TodoButton({ state }: { state?: TodoState }) {
                           {task.blockedBy
                             .map((id) => {
                               const dependency = tasks.find((t) => t.id === id)
-                              return `#${id}${dependency ? ` ${dependency.subject} (${dependency.status})` : ''}`
+                              return `#${id}${dependency ? ` ${dependency.subject} (${t(dependency.status)})` : ''}`
                             })
                             .join(', ')}
                         </small>

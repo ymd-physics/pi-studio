@@ -345,7 +345,7 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
     } catch (error) { report(error) }
   }
   const title = workspaceName || info.workspace.split('/').filter(Boolean).at(-1) || info.workspace
-  return <section ref={root} className="terminal-view" hidden={!visible} aria-label={`Terminal ${info.name}`}>
+  return <section ref={root} className="terminal-view" hidden={!visible} aria-label={t('Terminal {name}', { name: info.name })}>
     <header className="topbar terminal-view__header">
       <button className="icon-button" onClick={toggleSidebar} aria-label={t("Toggle sidebar")} title={t("Toggle sidebar")}><PanelLeft size={18} /></button>
       <div className="breadcrumbs"><span>{title}</span><ChevronRight size={12} /><strong title={info.name}>{info.name}</strong></div>
@@ -359,7 +359,7 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
         <button className="icon-button" aria-label={t("Close terminal")} title={t("Close terminal")} onClick={onClose}><X size={15} /></button>
       </div>
     </header>
-    {(error || info.reason) && <div role={error ? 'alert' : 'status'} className={`banner ${error ? 'error' : ''}`}><span>{error || info.reason}</span>{error && <button className="icon-button" aria-label={t("Dismiss terminal error")} onClick={() => setError('')}><X size={14} /></button>}</div>}
+    {(error || info.reason) && <div role={error ? 'alert' : 'status'} className={`banner ${error ? 'error' : ''}`}><span>{t(error || info.reason || '')}</span>{error && <button className="icon-button" aria-label={t("Dismiss terminal error")} onClick={() => setError('')}><X size={14} /></button>}</div>}
     <div className="terminal-view__body" style={{ fontSize }}>
       <div className="terminal-view__output" onContextMenu={(event) => context(event, 'output')}><div ref={host} className="terminal-view__xterm" aria-label={t("Terminal output")} /></div>
       <div className={`terminal-view__shelf ${editable ? '' : 'is-direct'}`}>
@@ -382,7 +382,7 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
           </div>
         </div>
       </div>
-      <footer className="terminal-view__status"><span><i />{t("Local session") + ' '}<span>·</span> {info.state === 'exited' ? `Exited ${info.exitCode ?? ''}` : t('Temporary until App quit')}</span><span>{info.shell.split('/').at(-1)}{' ' + t("· UTF-8")}</span></footer>
+      <footer className="terminal-view__status"><span><i />{t("Local session") + ' '}<span>·</span> {info.state === 'exited' ? t('Exited {code}', { code: info.exitCode ?? '' }) : t('Temporary until App quit')}</span><span>{info.shell.split('/').at(-1)}{' ' + t("· UTF-8")}</span></footer>
     </div>
     {menu && <div ref={menuNode} className="menu terminal-output-menu" role="menu" aria-label={t("Terminal text actions")} style={{ left: menu.x, top: menu.y }} onPointerDown={(event) => event.stopPropagation()}>
       <button role="menuitem" disabled={!menu.selection} onClick={() => { const text = menu.selection; setMenu(undefined); void transport.copyText(text).catch(report) }}>{t("Copy")}</button>

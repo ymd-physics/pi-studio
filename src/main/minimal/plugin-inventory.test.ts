@@ -3,7 +3,14 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFileSync } from 'node:child_process'
-import { readPluginInventory } from './plugin-inventory'
+import { readPluginInventory as inspect } from './plugin-inventory'
+import { formatPluginWarning } from '../../../packages/shared/plugins'
+import { uiText } from '../../../packages/shared/language'
+
+async function readPluginInventory(...args: Parameters<typeof inspect>) {
+  const result = await inspect(...args)
+  return { ...result, warnings: result.warnings.map(w => formatPluginWarning(w, uiText('en'))) }
+}
 
 const installation = { sdk: '/never/import.js', cli: '/never/run.js', node: '/never/node', version: '1.5.0' }
 let root: string
@@ -20,6 +27,15 @@ beforeEach(async () => {
 afterEach(async () => { vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }) })
 
 describe('readPluginInventory', () => {
+  it('renders the same snapshot in Chinese and English without translating literal package names or glob patterns', async () => {
+    const source = 'npm:bad {name}', pattern = 'extensions/*.ts'
+    await file(join(agent, 'settings.json'), { packages: [source], extensions: [pattern] })
+    const result = await inspect(installation)
+    expect(result.warnings.map(w => formatPluginWarning(w, uiText('zh-CN')))).toEqual(expect.arrayContaining([
+      `不支持此 npm 软件包来源：${source}`, `未展开扩展路径通配符：${pattern}`,
+    ]))
+    expect(result.warnings.map(w => formatPluginWarning(w, uiText('en')))).toContain(`Unsupported npm source: ${source}`)
+  })
   it('reads installed manifest versions without treating configured constraints as installed versions', async () => {
     await file(join(agent, 'settings.json'), { packages: ['npm:pi-web-access@^0.47', 'npm:pi-subagents@^0.87'] })
     await file(join(agent, 'npm/node_modules/pi-web-access/package.json'), { name: 'pi-web-access', version: '0.47.0', main: './must-not-execute.js' })

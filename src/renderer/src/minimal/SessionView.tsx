@@ -6,7 +6,7 @@ import { stripAnsi } from '../../../../packages/shared/ansi'
 import { ActivityTracker, emptyActivity } from './activity'
 import { EventBatch } from './event-batch'
 import { noticeAnchor, withNotices, type SessionNotice } from './notices'
-import { applyMessageEvent, messageText } from './transcript'
+import { applyMessageEvent } from './transcript'
 import { commandCatalog, routeCommand, terminalCommands } from './commands'
 import { Conversation } from './Conversation'
 import { splitAttachmentBlock, visibleMessageText } from './attachments'
@@ -378,7 +378,7 @@ export function SessionView({
         }
         if (event.type === 'desktop_diagnostic')
           addNotice(stripAnsi(event.message || ''), 'warning', 'native-diagnostic')
-        if (event.type === 'auto_retry_start') setNotice(`Pi is retrying: ${event.errorMessage}`)
+        if (event.type === 'auto_retry_start') setNotice(t('Pi is retrying: {message}', { message: event.errorMessage }))
         if (event.type === 'auto_retry_end') {
           setNotice('')
           if (event.finalError) showError(event.finalError)
@@ -512,7 +512,7 @@ export function SessionView({
     if (action.name === 'compact') void compact()
     if (action.name === 'terminal')
       setNotice(
-        `Open in terminal after closing this session: pi --session ${JSON.stringify(session.state.sessionFile)}`,
+        t('Open in terminal after closing this session: {command}', { command: `pi --session ${JSON.stringify(session.state.sessionFile)}` }),
       )
   }, [action?.sequence])
   const compact = async () => {
@@ -545,9 +545,9 @@ export function SessionView({
       const text = [...(removed.steering || []), ...(removed.followUp || [])].join('\n\n')
       if (text) setDraft((old) => [old, text].filter(Boolean).join('\n\n'))
       setNotice(
-        text
+        t(text
           ? 'Pending text recalled into the composer. Already delivered messages cannot be recalled. Attachment files are kept; reattach images to resend them as image content.'
-          : 'No pending messages remain to recall.',
+          : 'No pending messages remain to recall.'),
       )
     } catch (e) {
       showError(e)
@@ -595,12 +595,12 @@ export function SessionView({
     }
     const route = routeCommand(message, native)
     if (route.kind === 'terminal') {
-      setNotice(terminalCommands[route.name])
+      setNotice(t(terminalCommands[route.name]))
       return
     }
     if (route.kind === 'desktop') {
       if (busy) {
-        setNotice('Wait for Pi to finish, or stop it before running this session operation.')
+        setNotice(t('Wait for Pi to finish, or stop it before running this session operation.'))
         return
       }
       if (route.name === 'new') {
@@ -648,7 +648,7 @@ export function SessionView({
           if (uiAtRequest === uiRevision.current) restoreUI(next)
           changed(next)
           setDraft('')
-          setNotice('Pi resources reloaded. Session history preserved.')
+          setNotice(t('Pi resources reloaded. Session history preserved.'))
         } catch (e) {
           showError(e)
         } finally {
@@ -660,14 +660,14 @@ export function SessionView({
         if (route.name === 'copy') {
           const data = await command('get_last_assistant_text')
           if (data.text) await window.desktop.copyText(data.text)
-          setNotice(data.text ? 'Response copied.' : 'No assistant response to copy.')
+          setNotice(t(data.text ? 'Response copied.' : 'No assistant response to copy.'))
         }
         if (route.name === 'session') setNotice(JSON.stringify(await command('get_session_stats'), null, 2))
         if (route.name === 'export') {
           if (route.args && !route.args.endsWith('.html'))
             throw new Error('RPC export supports an optional .html output path only.')
           const data = await command('export_html', route.args ? { outputPath: route.args } : {})
-          setNotice(`Exported to ${data.path}`)
+          setNotice(t('Exported to {path}', { path: data.path }))
         }
         if (route.name === 'resume') showSidebar?.()
         if (route.name === 'quit') window.close()
@@ -782,10 +782,7 @@ export function SessionView({
   }, [visible, rename !== undefined, branches !== undefined, tree !== undefined, dialogs[0]?.id])
   const workspaceName =
     preferences.workspaces.find((w) => w.path === session.workspace)?.name || session.workspace
-  const title =
-    session.state.sessionName ||
-    messageText(session.messages.find((m) => m.role === 'user') || { role: 'user' }).slice(0, 65) ||
-    t('New conversation')
+  const title = session.state.sessionName?.trim() || t('Untitled conversation')
   return (
     <MarkdownOrigin.Provider value={markdownOrigin}><section ref={viewRoot} className="session-view" hidden={!visible} data-session-handle={handle}>
       <header className="topbar">

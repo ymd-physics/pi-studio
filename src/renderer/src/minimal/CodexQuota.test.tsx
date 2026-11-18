@@ -4,6 +4,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { CodexQuota } from './CodexQuota'
 import type { CodexUsageSnapshot } from '../../../../packages/shared/codex-usage'
 
+import { LanguageContext } from './language'
+
 const now = Date.UTC(2026, 0, 1)
 function usage(overrides: Partial<CodexUsageSnapshot> = {}): CodexUsageSnapshot {
   return {
@@ -13,6 +15,13 @@ function usage(overrides: Partial<CodexUsageSnapshot> = {}): CodexUsageSnapshot 
   }
 }
 afterEach(() => { cleanup(); vi.useRealTimers() })
+
+it('formats remaining allowance, tooltip and multi-day countdown as Chinese phrases', () => {
+  vi.useFakeTimers(); vi.setSystemTime(now)
+  render(<LanguageContext.Provider value="zh-CN"><CodexQuota usage={usage({ windows: [{ durationSeconds: 604800, remainingPercent: 91, resetsAt: now / 1000 + (5 * 1440 + 10 * 60 + 23) * 60 }] })} /></LanguageContext.Provider>)
+  expect(screen.getByText('5 天 10 小时 23 分钟后重置')).toBeTruthy()
+  expect(screen.getByText('剩余 91%').parentElement?.title).toContain('重置时间：')
+})
 
 it('counts down real reset timestamps every minute and cleans up its timer', () => {
   vi.useFakeTimers()

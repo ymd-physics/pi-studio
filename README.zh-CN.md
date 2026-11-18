@@ -9,14 +9,16 @@ Pi Studio 是一个集成了 [Pi](https://pi.dev/) 和终端功能的桌面应�
 ## 安装（Apple Silicon）
 
 1. 先按 [Pi 官网](https://pi.dev/) 的说明安装 Node.js 版 Pi。打开终端运行 `pi`，确认可以选择模型、完成认证并正常对话。Studio 不会替你安装或升级 Pi。
-2. 在本仓库的 **Releases → Assets** 下载 `Pi-Studio-1.0.3-mac-arm64.dmg`。`Source code` 是源码归档，不是安装包。
+2. 在本仓库的 **Releases → Assets** 下载 [`Pi-Studio-1.0.4-mac-arm64.dmg`](https://github.com/ymd-physics/pi-studio/releases/download/v1.0.4/Pi-Studio-1.0.4-mac-arm64.dmg)。`Source code` 是源码归档，不是安装包。
 3. 打开 DMG，将 **Pi Studio.app** 拖到 **Applications**，弹出磁盘映像，再从“应用程序”打开。该版本未做开发者签名或 Apple 公证；macOS 可能会阻止首次打开。请先核对发布页的 SHA-256，无需关闭系统安全保护。
 
 可在下载目录运行以下命令，将输出与发布说明逐字比对：
 
 ```sh
-shasum -a 256 Pi-Studio-1.0.3-mac-arm64.dmg
+shasum -a 256 Pi-Studio-1.0.4-mac-arm64.dmg
 ```
+
+从 1.0.4 起，可以在**偏好设置 → 关于 → 检查更新**中查看新版日志、下载 DMG。Studio 不会自动安装更新。
 
 ## 快速上手
 

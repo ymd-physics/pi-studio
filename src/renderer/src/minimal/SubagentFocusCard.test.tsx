@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SubagentCard, SubagentStatus } from '../../../../packages/shared/subagents'
+import { LanguageContext } from './language'
 import { SubagentFocusCard } from './SubagentFocusCard'
 
 const agent = (id: string, extra: Partial<SubagentCard> = {}): SubagentCard => ({ id, name: id, state: 'running', startedAt: 0, ...extra })
@@ -9,6 +10,13 @@ const status = (...agents: SubagentCard[]): SubagentStatus => ({ availability: '
 const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms))
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(60_000) })
 afterEach(() => { cleanup(); vi.useRealTimers() })
+
+it('localizes the subagent status, elapsed time, thinking level and activity but not its task or name', () => {
+  const snapshot = status(agent('scout', { startedAt: 18000, thinking: 'medium', activity: 'read · 27 tools', task: 'Read the notes' }))
+  render(<LanguageContext.Provider value="zh-CN"><SubagentFocusCard active status={snapshot} /></LanguageContext.Provider>)
+  for (const text of ['子代理', '运行中 1 个 · 排队中 0 个 · 共 1 个', '0 分 42 秒', 'read · 27 次工具调用', 'scout', 'Read the notes']) expect(screen.getByText(text)).toBeTruthy()
+  expect(screen.getByTitle('思考强度').textContent).toBe('中')
+})
 
 it('links attention only on user action and suppresses stale-status navigation', () => {
   const snapshot = status(agent('scout'), agent('reviewer', { state: 'waiting' }))

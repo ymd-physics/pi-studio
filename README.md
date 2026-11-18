@@ -9,14 +9,16 @@ I wanted a clean, simple interface for working with Pi, with a terminal close at
 ## Install on Apple Silicon
 
 1. Install the Node.js version of Pi following the instructions at [pi.dev](https://pi.dev/). Run `pi` in your terminal and make sure you can select a model, sign in, and start a conversation. Studio doesn't install or upgrade Pi for you.
-2. Under **Releases → Assets**, download `Pi-Studio-1.0.3-mac-arm64.dmg`. The `Source code` downloads are source archives, not installers.
+2. Under **Releases → Assets**, download [`Pi-Studio-1.0.4-mac-arm64.dmg`](https://github.com/ymd-physics/pi-studio/releases/download/v1.0.4/Pi-Studio-1.0.4-mac-arm64.dmg). The `Source code` downloads are source archives, not installers.
 3. Open the disk image, drag **Pi Studio.app** into **Applications**, eject the image, then open Studio from Applications. The app isn't signed with an Apple Developer ID or notarized, so macOS may block its first launch. Verify the download against the SHA-256 checksum on the release page; there's no need to disable system security protections.
 
 To check the download, run this command in your downloads folder and compare its output with the checksum in the release notes:
 
 ```sh
-shasum -a 256 Pi-Studio-1.0.3-mac-arm64.dmg
+shasum -a 256 Pi-Studio-1.0.4-mac-arm64.dmg
 ```
+
+From 1.0.4 onward, open **Preferences → About → Check for Updates** to read the release notes and download a newer DMG. Studio never installs updates automatically.
 
 ## Quick start
 

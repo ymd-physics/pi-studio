@@ -23,6 +23,8 @@ const terminal: TerminalTransport = {
   pasteText: () => invoke('pasteText'),
 }
 const api: DesktopAPI = {
+  checkUpdate: () => invoke('checkUpdate'),
+  downloadUpdate: (version) => invoke('downloadUpdate', version),
   boot: () => invoke('boot'),
   preferences: (patch) => invoke('preferences', patch),
   terminals: () => invoke('terminals'),

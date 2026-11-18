@@ -21,8 +21,17 @@ export async function readPluginInventory(installation: PiInstallation, workspac
     if (!isAbsolute(expand(workspace))) throw new Error('Plugin inventory workspace must be absolute')
     result.workspace = resolve(expand(workspace))
   }
-  const warn = (message: string) => { if (!result.warnings.includes(message)) result.warnings.push(message) }
-  const failure = (path: string, error: unknown) => warn(`Cannot inspect ${path}: ${(error as NodeJS.ErrnoException).code || 'invalid data'}`)
+  const seenWarnings = new Set<string>()
+  const warn = (message: string, values?: Record<string, string | number>) => {
+    const key = JSON.stringify([message, values])
+    if (!seenWarnings.has(key)) result.warnings.push(values ? { message, values } : message)
+    seenWarnings.add(key)
+  }
+  const failure = (path: string, error: unknown) => {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code) warn('Cannot inspect {path}: {code}', { path, code })
+    else warn('Cannot inspect {path}: invalid data', { path })
+  }
   let operations = 0
   const budget = () => { if (++operations > 4096) throw new Error('Inventory filesystem operation limit reached') }
   async function presence(path: string): Promise<boolean | undefined> {
@@ -57,7 +66,7 @@ export async function readPluginInventory(installation: PiInstallation, workspac
       budget()
       const dir = await opendir(path)
       for await (const entry of dir) {
-        if (names.length === limit) { warn(`Inventory truncated at ${limit} entries: ${path}`); break }
+        if (names.length === limit) { warn('Inventory truncated at {limit} entries: {label}', { limit, label: path }); break }
         names.push(entry.name)
       }
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') failure(path, error) }
@@ -65,8 +74,8 @@ export async function readPluginInventory(installation: PiInstallation, workspac
   }
   function bounded(value: unknown, label: string): unknown[] {
     if (value === undefined) return []
-    if (!Array.isArray(value)) { warn(`Invalid ${label}: expected array`); return [] }
-    if (value.length > limit) warn(`Inventory truncated at ${limit} entries: ${label}`)
+    if (!Array.isArray(value)) { warn('Invalid {label}: expected array', { label }); return [] }
+    if (value.length > limit) warn('Inventory truncated at {limit} entries: {label}', { limit, label })
     return value.slice(0, limit)
   }
   function packagePath(source: string, base: string): { name: string; path?: string; npm?: boolean } {
@@ -75,7 +84,7 @@ export async function readPluginInventory(installation: PiInstallation, workspac
       const match = source.slice(4).trim().match(/^(@[^/@\s]+\/[^/@\s]+|[^/@\s]+)(?:@[^\s]+)?$/)
       if (match && !match[1].split('/').some(part => part === '.' || part === '..'))
         return { name: match[1], path: join(base, 'npm', 'node_modules', match[1]), npm: true }
-      warn(`Unsupported npm source: ${source}`); return { name: source }
+      warn('Unsupported npm source: {source}', { source }); return { name: source }
     }
     if (source.startsWith('git:') || /^(https?|ssh):\/\//.test(source)) {
       let text = source.replace(/^git:(?!\/\/)/, '').replace(/^git@([^:]+):/, '$1/')
@@ -86,7 +95,7 @@ export async function readPluginInventory(installation: PiInstallation, workspac
       text = text.replace(/^github:/, 'github.com/').replace(/^gitlab:/, 'gitlab.com/').replace(/^bitbucket:/, 'bitbucket.org/')
       if (/^[\w.-]+\/[\w.-]+\/[\w./-]+$/.test(text) && !text.split('/').some(part => part === '..' || part === '.'))
         return { name: basename(text), path: join(base, 'git', text) }
-      warn(`Unsupported git source: ${source}`); return { name: source }
+      warn('Unsupported git source: {source}', { source }); return { name: source }
     }
     return { name: basename(source), path: resolve(base, expand(source)) }
   }
@@ -103,7 +112,7 @@ export async function readPluginInventory(installation: PiInstallation, workspac
     for (const raw of bounded(settings?.packages, `${scope} packages`)) {
       const config = object(raw)
       const source = typeof raw === 'string' ? raw : config.source
-      if (typeof source !== 'string' || !source) { warn(`Invalid ${scope} package source`); continue }
+      if (typeof source !== 'string' || !source) { warn(scope === 'global' ? 'Invalid global package source' : 'Invalid local package source'); continue }
       const parsed = packagePath(source, base)
       const installed = parsed.path ? await presence(parsed.path) : undefined
       let version: string | undefined
@@ -119,20 +128,21 @@ export async function readPluginInventory(installation: PiInstallation, workspac
       }
       const filters = ['extensions', 'skills', 'prompts', 'themes'].filter(key => config[key] !== undefined)
       const disabled = filters.length === 4 && filters.every(key => Array.isArray(config[key]) && (config[key] as unknown[]).length === 0)
-      if (filters.length && !disabled) warn(`Resource filters are not evaluated for ${source}; package presence is not activation`)
+      if (filters.length && !disabled) warn('Resource filters are not evaluated for {source}; package presence is not activation', { source })
       if (parsed.npm && scope === 'global' && installed === false) warn('Legacy global npm/pnpm packages are not inspected (requires executing a package manager)')
       add(parsed.name, source, disabled ? 'disabled' : installed ? 'installed' : installed === false && !(parsed.npm && scope === 'global') ? 'missing' : 'configured',
         installed === undefined ? 'Presence could not be verified' : undefined, version)
     }
     const patterns = bounded(settings?.extensions, `${scope} extensions`).filter((entry): entry is string => {
       if (typeof entry === 'string') return true
-      warn(`Invalid ${scope} extension entry`); return false
+      warn(scope === 'global' ? 'Invalid global extension entry' : 'Invalid local extension entry'); return false
     })
-    for (const pattern of patterns) if (/[*?{}[\]]/.test(pattern)) warn(`Extension glob not evaluated: ${pattern}`)
+    const warnGlob = (pattern: string) => warn('Extension glob not evaluated: {pattern}', { pattern })
+    for (const pattern of patterns) if (/[*?{}[\]]/.test(pattern)) warnGlob(pattern)
     async function extension(path: string, manifestName?: string, version?: string) {
       let disabled = false
       for (const pattern of patterns) {
-        if (/[*?{}[\]]/.test(pattern)) { warn(`Extension glob not evaluated: ${pattern}`); continue }
+        if (/[*?{}[\]]/.test(pattern)) { warnGlob(pattern); continue }
         if (resolve(base, expand(pattern.replace(/^[!+-]/, ''))) === path && /^[!+-]/.test(pattern)) disabled = !pattern.startsWith('+')
       }
       const exists = await presence(path)
@@ -157,7 +167,7 @@ export async function readPluginInventory(installation: PiInstallation, workspac
     }
     for (const pattern of patterns) {
       if (/^[!+-]/.test(pattern)) continue
-      if (/[*?{}[\]]/.test(pattern)) { warn(`Extension glob not evaluated: ${pattern}`); continue }
+      if (/[*?{}[\]]/.test(pattern)) { warnGlob(pattern); continue }
       if (pattern.startsWith('builtin:')) {
         const overrides = patterns.filter(value => /^[!+-]/.test(value) && value.slice(1) === pattern)
         const disabled = overrides.length > 0 && !overrides[overrides.length - 1].startsWith('+')
@@ -177,7 +187,7 @@ export async function readPluginInventory(installation: PiInstallation, workspac
         else await directoryEntries(path)
       }
     }
-    for (const name of ['.gitignore', '.ignore', '.piignore']) if (await presence(join(auto, name))) warn(`Auto-extension ignore rules not evaluated: ${join(auto, name)}`)
+    for (const name of ['.gitignore', '.ignore', '.piignore']) if (await presence(join(auto, name))) warn('Auto-extension ignore rules not evaluated: {path}', { path: join(auto, name) })
     for (const [name, adapted] of Object.entries(recommended)) {
       if (entries.some(entry => entry.adapted === adapted)) continue
       const source = `npm:${name}`

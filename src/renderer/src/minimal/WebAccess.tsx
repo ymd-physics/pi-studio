@@ -44,7 +44,7 @@ export function WebBackgroundNotice({ message }: { message: Message }) {
     <div className="web-eyebrow">{t("WEB ACCESS / BACKGROUND UPDATE")}</div>
     <div className="web-heading"><strong>{notice.kind === 'error' ? t('Background fetch failed') : t('Background content')}</strong>
       <span className={notice.kind === 'error' || (notice.kind === 'ready' && !notice.available) ? 'web-error' : partial ? 'web-warning' : 'web-success'}>{notice.kind === 'error' ? t('Error') : !notice.available ? t('No content') : partial ? t('Partial') : t('Ready')}</span></div>
-    {notice.kind === 'ready' ? <><div className="web-coverage"><div>{notice.available} <small>/ {notice.total}</small></div><p><strong>{t("Pages ready to read")}</strong>{partial ? `${notice.total - notice.available} without retrieved content` : t('All pages in this batch are available')}</p></div>
+    {notice.kind === 'ready' ? <><div className="web-coverage"><div>{notice.available} <small>/ {notice.total}</small></div><p><strong>{t("Pages ready to read")}</strong>{partial ? t('{count} without retrieved content', { count: notice.total - notice.available }) : t('All pages in this batch are available')}</p></div>
       <div className="web-coverage-bar" aria-hidden="true"><span style={{ width: `${100 * notice.available / notice.total}%` }} /></div>
       <p>{t("Background fetch finished. URL-level diagnostics are not included in this notice.")}</p></> : <p>{notice.error}</p>}
     <NativeData result={message} />
@@ -58,7 +58,7 @@ export function WebToolResult({ name, args, result, status }: { name: string; ar
   const [selected, setSelected] = useState<string>()
   const source = sources.find(item => item.url === selected)
   const active = status === 'running' || status === 'pending'
-  const error = text(details.error) || (result?.isError ? 'The tool reported an error.' : '')
+  const error = text(details.error) || (result?.isError ? t('The tool reported an error.') : '')
   const query = text(arguments_.query) || text(arguments_.claim) || (Array.isArray(arguments_.queries) ? arguments_.queries.slice(0, 8).map(value => text(value, 500)).filter(Boolean).join(' · ') : '')
   const queryCount = count(details.queryCount), successfulQueries = count(details.successfulQueries)
   const urlCount = count(details.urlCount), successful = count(details.successful)
@@ -78,7 +78,7 @@ export function WebToolResult({ name, args, result, status }: { name: string; ar
     <header className="web-heading"><Globe size={15} /><strong>{names[name] ? t(names[name]) : name}</strong><span className={tone}>{t(label)}</span></header>
     {query && <p className="web-query">{query}</p>}
     {active ? <div className={`web-notice ${review ? 'web-review' : ''}`}>
-      <p>{review ? t('Review and approve in the plugin’s browser curator. This is not a final result.') : text(details.currentQuery) || (status === 'pending' ? 'Waiting to execute…' : 'Waiting for the tool’s next update…')}</p>
+      <p>{review ? t('Review and approve in the plugin’s browser curator. This is not a final result.') : text(details.currentQuery) || t(status === 'pending' ? 'Waiting to execute…' : 'Waiting for the tool’s next update…')}</p>
       {progress !== undefined && !review && <><progress aria-label={t("Reported phase progress")} max={1} value={progress} /><small>{t("Reported phase progress · not time remaining")}</small></>}
       {review && curatorUrl && <MarkdownLink href={curatorUrl}>{t("Open browser review ↗")}</MarkdownLink>}
       {review && count(details.timeoutSeconds) !== undefined && <small>{t("Reported idle timeout:") + ' '}{String(details.timeoutSeconds)}{' ' + t("s · not a live countdown")}</small>}
@@ -107,9 +107,9 @@ export function WebToolResult({ name, args, result, status }: { name: string; ar
       {source && <div className="web-inspector"><div className="web-heading"><strong>{source.title}</strong><button aria-label={t("Close source preview")} onClick={() => setSelected(undefined)}><X size={14} /></button></div>
         <MarkdownLink href={source.url}>{source.url}</MarkdownLink>
         {source.quality && <p>{t("Type:") + ' '}{source.quality}{' ' + t("· not a credibility rating")}</p>}
-        {source.passage ? <><small className="web-warning">{source.origin} {source.passageId && `· ${source.passageId}`}</small><blockquote>{source.passage}</blockquote></> : <p>{t("No page passage was supplied with this result. Opening this card does not fetch the page.")}</p>}
+        {source.passage ? <><small className="web-warning">{source.origin && t(source.origin)} {source.passageId && `· ${source.passageId}`}</small><blockquote>{source.passage}</blockquote></> : <p>{t("No page passage was supplied with this result. Opening this card does not fetch the page.")}</p>}
       </div>}<small className="web-limit">{t("Up to 24 unique source cards. Full returned results remain in native data.")}</small></>}
-      {name === 'get_search_content' && count(details.contentLength) !== undefined && <div className="web-notice"><strong>{t("Stored content")}</strong><p>{count(details.offset) !== undefined && count(details.returnedChars) !== undefined ? `Chars ${details.offset}–${Number(details.offset) + Number(details.returnedChars)} of ${details.contentLength}` : `${details.contentLength} characters in the stored source`}{details.truncated === true ? t(' · more content available') : ''}</p><small>{t("Character offsets, not tokens. Viewing this card does not retrieve another slice.")}</small></div>}
+      {name === 'get_search_content' && count(details.contentLength) !== undefined && <div className="web-notice"><strong>{t("Stored content")}</strong><p>{count(details.offset) !== undefined && count(details.returnedChars) !== undefined ? t('Chars {start}–{end} of {length}', { start: Number(details.offset), end: Number(details.offset) + Number(details.returnedChars), length: Number(details.contentLength) }) : t('{length} characters in the stored source', { length: Number(details.contentLength) })}{details.truncated === true ? t(' · more content available') : ''}</p><small>{t("Character offsets, not tokens. Viewing this card does not retrieve another slice.")}</small></div>}
       {(name === 'fetch_content' || name === 'get_search_content') && content && <pre className="web-page-content">{content}</pre>}
       {name === 'web_search' && content && <details className="web-returned"><summary>{t('Returned summary & source text')}</summary><p>{t("Search-provider output; not a verified page quotation. Any approved summary metadata remains in native data.")}</p><pre>{content}</pre></details>}
     </>}

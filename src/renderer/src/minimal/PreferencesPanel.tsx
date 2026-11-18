@@ -8,6 +8,9 @@ import { PI_RECOMMENDED_VERSION } from '../../../../packages/shared/compatibilit
 import { PluginList, usePluginInventory } from './PluginList'
 import './preferences-panel.css'
 
+import { projectUrl } from '../../../../packages/shared/updates'
+import { UpdateCard } from './UpdateCard'
+
 export function PreferencesDialog({ children, label, onClose, workspace = false }: {
   children: ReactNode; label: string; onClose(): void; workspace?: boolean
 }) {
@@ -60,9 +63,9 @@ export function PreferencesPanel({ preferences, runtime, onChange, onClose, load
         {category === 'Appearance' && !detail && <>
           <p className="pp-intro">{t("Make space for comfortable reading.")}</p>
           <div className="pp-group">{([
+            ['Language', 'Interface language', preferences.language === 'zh-CN' ? '简体中文' : 'English'],
             ['Theme', 'Light, dark or system appearance', preferences.theme],
             ['Font', 'Conversation typography', preferences.font || 'default'],
-            ['Language', 'Interface language', preferences.language === 'zh-CN' ? '简体中文' : 'English'],
           ] as const).map(([name, description, value]) => (
             <button className="pp-row" key={name} onClick={() => navigate(name)}>
               <span><strong>{t(name)}</strong><small>{t(description)}</small></span>
@@ -81,8 +84,12 @@ export function PreferencesPanel({ preferences, runtime, onChange, onClose, load
         {category === 'Plugins' && <><p className="pp-intro">{t("Workspace-local resources are shown in workspace information, not here.")}</p><PluginList inventory={inventory} error={error} scope="global" onRetry={retry} /></>}
         {category === 'About' && <>
           <p className="pp-intro">{t("A workspace for thinking, coding, and research.")}</p>
-          <h3>{t("Application")}</h3><div className="pp-group"><div className="pp-row"><strong>Pi Studio</strong><span>{appVersion}</span></div></div>
-          <div className="pp-about-credit"><strong>{t("Developed by YM")}</strong><p>{t("Built with assistance from OpenAI’s GPT models.")}</p><p>{t("Powered by Pi.")}</p></div>
+          <h3>{t("Application")}</h3><UpdateCard version={appVersion} />
+          <dl className="pp-about-credit">
+            <dt>{t('Author:')}</dt><dd>YM</dd>
+            <dt>{t('Repository:')}</dt><dd><a href={projectUrl}>{projectUrl}</a></dd>
+            <dt>{t('Credits:')}</dt><dd>{t('Built with assistance from OpenAI’s GPT models. Powered by Pi.')}</dd>
+          </dl>
           <h3>{t("Pi installation")}</h3><div className="pp-group"><div className="pp-row"><span><strong>{t("Installed Pi")}</strong><small className="pp-path">{runtime || t('Installation unavailable')}</small></span></div></div>
           <p className="pp-footnote">{t("Recommended: Pi ≥") + ' '}{PI_RECOMMENDED_VERSION}{t(". Older versions may have compatibility issues.")}</p>
           <p className="pp-footnote">{t("Optional plugin baselines are listed under Plugins and Workspace information. These are known adapter baselines, not a guarantee for every version.")}</p>

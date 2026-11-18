@@ -56,7 +56,7 @@ export function CompactionNotice({
             title={t("Current model provider. The extension has not reported its compaction engine yet; the completion result will identify it.")}
           >{t("Model: OpenAI Codex")}</small>
         )}
-        {value.started !== undefined && <small>{elapsed((value.ended ?? now) - value.started)}</small>}
+        {value.started !== undefined && <small>{elapsed((value.ended ?? now) - value.started, t)}</small>}
         {value.reason && value.reason !== 'manual' && <small>{t("Automatic")}</small>}
       </div>
       {value.status === 'complete' && (valid(before) || valid(after)) && (

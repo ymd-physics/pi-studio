@@ -40,8 +40,10 @@ it('PreferencesPanel uses category rail, drill-ins, bilingual preview and actual
   expect(screen.getByText('/actual/pi')).toBeTruthy()
   expect(screen.getByText(version)).toBeTruthy()
   expect(screen.getByText('Pi Studio', { exact: true })).toBeTruthy()
-  expect(screen.getByText('Developed by YM')).toBeTruthy()
-  expect(screen.getByText('Built with assistance from OpenAI’s GPT models.')).toBeTruthy()
+  expect(screen.getByText('Author:').nextElementSibling?.textContent).toBe('YM')
+  const url = 'https://github.com/ymd-physics/pi-studio'
+  expect(screen.getByRole('link', { name: url }).getAttribute('href')).toBe(url)
+  expect(screen.getByText('Credits:').nextElementSibling?.textContent).toBe('Built with assistance from OpenAI’s GPT models. Powered by Pi.')
   expect(screen.getByText(/Recommended: Pi ≥ 1.4.0/)).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Plugins' }))
   expect(await screen.findByText('Permissions')).toBeTruthy()

@@ -134,7 +134,7 @@ export function Composer({
                 <button
                   type="button"
                   disabled={loading || sending}
-                  aria-label={`Remove attachment ${a.name}`}
+                  aria-label={t('Remove attachment {name}', { name: a.name })}
                   onClick={() => void removeAttachment?.(a.id)}
                 >
                   <X size={12} />

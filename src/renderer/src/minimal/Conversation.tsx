@@ -82,8 +82,8 @@ function Thinking({
   const now = useClock(running)
   const visible = groupOpen || running || open
   const title = running
-    ? `${t('Thinking…')} ${elapsed(now - timing.started)}`
-    : `${t('Thought')}${timing ? ' ' + elapsed(timing.ended! - timing.started) : ''}`
+    ? `${t('Thinking…')} ${elapsed(now - timing.started, t)}`
+    : `${t('Thought')}${timing ? ' ' + elapsed(timing.ended! - timing.started, t) : ''}`
   return (
     <div className="thinking-row process-row" hidden={!visible}>
       <button className="process-toggle" aria-expanded={open} onClick={toggle}>
@@ -143,7 +143,7 @@ function Tool({
         <span className="tool-info">
           <span className="tool-summary">{toolSummary(call, workspace)}</span>
           {call.name === 'edit' && status === 'succeeded' && (diff ? (
-            <span className="tool-call-changes" title={t("Native edit diff · this call only")} aria-label={`${diff.added} ${diff.added === 1 ? 'line' : 'lines'} added, ${diff.removed} ${diff.removed === 1 ? 'line' : 'lines'} removed`}>
+            <span className="tool-call-changes" title={t("Native edit diff · this call only")} aria-label={`${t(diff.added === 1 ? '{count} line added' : '{count} lines added', { count: diff.added })}, ${t(diff.removed === 1 ? '{count} line removed' : '{count} lines removed', { count: diff.removed })}`}>
               <b className="tool-lines-added">+{diff.added}</b>
               <b className="tool-lines-removed">−{diff.removed}</b>
             </span>
@@ -220,15 +220,16 @@ function ToolGroup({
       )
     : []
   const stats = groupStatistics(calls, results, activity.tools)
+  const heading = t(calls.length === 1 ? '{count} tool call' : '{count} tool calls', { count: calls.length })
   return (
-    <section className="tool-group" aria-label={`${calls.length} tool calls`}>
+    <section className="tool-group" aria-label={heading}>
       <div className="tool-group-summary">
         <div className="tool-group-header">
           <button className="process-toggle tool-group-title" aria-expanded={open} onClick={toggle}>
             <ChevronRight size={14} className={open ? 'disclosure-open' : ''} />
             <Layers size={16} />
             <strong>
-              {calls.length}{' ' + t("tool") + ' '}{calls.length === 1 ? t('call') : t('calls')}
+              {heading}
             </strong>
           </button>
           <div className="tool-group-status" aria-label={t("Tool execution status")}>
@@ -242,22 +243,22 @@ function ToolGroup({
                 {stats.states.succeeded > 0 && (
                   <span className="status-badge state-succeeded">
                     <Check size={12} />
-                    {stats.states.succeeded} {t("succeeded")}</span>
+                    {t('{count} succeeded', { count: stats.states.succeeded })}</span>
                 )}
                 {stats.states.failed > 0 && (
                   <span className="status-badge state-failed">
                     <CircleAlert size={12} />
-                    {stats.states.failed} {t("failed")}</span>
+                    {t('{count} failed', { count: stats.states.failed })}</span>
                 )}
                 {stats.states.running > 0 && (
                   <span className="status-badge state-running">
                     <LoaderCircle size={12} className="spin" />
-                    {stats.states.running} {t("running")}</span>
+                    {t('{count} running', { count: stats.states.running })}</span>
                 )}
                 {stats.states.pending > 0 && (
                   <span className="status-badge">
                     <Circle size={11} />
-                    {stats.states.pending} {t("pending")}</span>
+                    {t('{count} pending', { count: stats.states.pending })}</span>
                 )}
               </>
             )}
@@ -285,7 +286,7 @@ function ToolGroup({
           )}
           {stats.unavailable > 0 && (
             <span className="tool-diff-unavailable">
-              {stats.unavailable}{' ' + t("edit") + ' '}{stats.unavailable === 1 ? t('diff') : t('diffs')} {t("unavailable")}</span>
+              {t(stats.unavailable === 1 ? '{count} edit diff unavailable' : '{count} edit diffs unavailable', { count: stats.unavailable })}</span>
           )}
         </div>
       </div>
@@ -306,7 +307,7 @@ function ToolGroup({
           ),
         )}
         {open && rows.length > limit && (
-          <button className="load-earlier" onClick={() => setLimit((n) => n + 100)}>{t("Show more calls (")}{rows.length - limit})
+          <button className="load-earlier" onClick={() => setLimit((n) => n + 100)}>{t('Show more calls ({count})', { count: rows.length - limit })}
           </button>
         )}
       </div>
@@ -324,10 +325,10 @@ function RunEnding({ metrics }: { metrics: RunMetrics }) {
     <div className="run-metrics" aria-label={t("Response statistics")}>
       <span>
         <Clock3 size={13} />
-        {elapsed(metrics.totalMs)}
+        {elapsed(metrics.totalMs, t)}
       </span>
       <span title={t("Output tokens / summed model-turn time, including TTFT; excludes tool execution time")}>
-        {tps}{t("tok/s")}</span>
+        {tps} {t("tok/s")}</span>
       {metrics.ttftMs !== undefined && <span>{t("TTFT") + ' '}{(metrics.ttftMs / 1000).toFixed(1)}{t("s")}</span>}
       {metrics.input !== undefined && <span>{t("in") + ' '}{tokens(metrics.input)}</span>}
       {metrics.output !== undefined && <span>{t("out") + ' '}{tokens(metrics.output)}</span>}
@@ -346,7 +347,7 @@ function Working({ active }: { active?: Activity['active'] }) {
   return (
     <div className="working" role="status">
       <LoaderCircle size={14} className="spin" />
-      {active ? `${active.phase}… ${elapsed(now - active.started)}` : t('Pi is working')}
+      {active ? `${t(active.phase)}… ${elapsed(now - active.started, t)}` : t('Pi is working')}
     </div>
   )
 }
@@ -436,7 +437,7 @@ export const Conversation = memo(
                       follow.current = false
                       setVisible((n) => n + 100)
                     }}
-                  >{t("Show earlier messages (")}{rows.length - visible})
+                  >{t('Show earlier messages ({count})', { count: rows.length - visible })}
                   </button>
                 )}
                 {rows.slice(-visible).map((row) => {
@@ -467,7 +468,7 @@ export const Conversation = memo(
                     return (
                       <div key={row.key} role="alert" className="inline-error">
                         {row.message.errorMessage ||
-                          (row.message.stopReason === 'aborted'
+                          t(row.message.stopReason === 'aborted'
                             ? 'Response stopped'
                             : 'Response ended before completion')}
                       </div>

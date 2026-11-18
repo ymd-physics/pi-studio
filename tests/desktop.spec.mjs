@@ -22,6 +22,9 @@ test('real Pi: terminal history, in-place continuation, commands, tools, files a
     expect(await app.evaluate(({ app }) => app.getVersion())).toBe(version)
     await expect(page.getByRole('textbox', { name: 'Message Pi' })).toBeVisible()
     const initial = await page.evaluate(() => window.desktop.snapshot())
+    const header = page.locator('.session-view:visible .breadcrumbs strong')
+    await expect(header).toHaveText('Untitled conversation')
+    await expect(header).toHaveAttribute('title', 'Untitled conversation')
     const source = initial.state.sessionFile
     const original = await readFile(source, 'utf8')
     expect(initial.messages.some((m) => m.role === 'assistant')).toBe(true)

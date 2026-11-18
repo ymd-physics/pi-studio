@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
+import { LanguageContext } from './language'
 import { Conversation } from './Conversation'
 import { emptyActivity } from './activity'
 import type { Message } from '../../../../packages/shared/desktop'
@@ -21,6 +22,12 @@ const messages: Message[] = [
   { role: 'toolResult', toolCallId: 'a', content: 'first private output' },
   { role: 'toolResult', toolCallId: 'b', content: 'exit code 2', isError: true },
 ]
+it('renders tool counts as Chinese phrases without translating tool identifiers', () => {
+  render(<LanguageContext.Provider value="zh-CN"><Conversation messages={[{ role: 'assistant', content: ['todo','todo','read','read','bash'].map((name, i) => call(String(i), name)) }]} busy={false} activity={emptyActivity()} /></LanguageContext.Provider>)
+  expect(screen.getByRole('button', { name: '5 次工具调用' })).toBeTruthy()
+  expect(within(screen.getByLabelText('工具明细')).getByText('todo')).toBeTruthy()
+})
+
 it('uses two disclosure levels, keeps active rows visible, and preserves individual expansion across collapse/growth', () => {
   const activity = emptyActivity()
   activity.tools.c = { status: 'running' }

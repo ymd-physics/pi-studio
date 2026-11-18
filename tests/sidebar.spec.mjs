@@ -1,7 +1,63 @@
 import { test, expect, _electron as electron } from '@playwright/test'
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createFixture } from './fixture.mjs'
+
+test('workspace picker allows folder creation and only registers a trusted selection', async () => {
+  const fixture = await createFixture()
+  let app
+  try {
+    app = await electron.launch({
+      args: process.env.PI_DESKTOP_TEST_EXECUTABLE ? [] : ['.'],
+      executablePath: process.env.PI_DESKTOP_TEST_EXECUTABLE,
+      env: fixture.env,
+    })
+    const page = await app.firstWindow()
+    const add = page.getByRole('button', { name: 'Add workspace', exact: true })
+    await expect(add).toBeEnabled()
+    // Playwright cannot click AppKit sheets. Capture the native options on cancel,
+    // then return the directory the sheet would create in this isolated fixture.
+    await app.evaluate(({ dialog }) => {
+      dialog.showOpenDialog = async (_window, options) => {
+        globalThis.pickerProperties = options.properties
+        return { canceled: true, filePaths: [] }
+      }
+      dialog.showMessageBox = async () => { throw new Error('Unexpected trust prompt on cancel') }
+    })
+    const workspaces = () => page.evaluate(async () => (await window.desktop.boot()).preferences.workspaces)
+    const before = await workspaces()
+    const canceled = await page.evaluate(() => window.desktop.addWorkspace())
+    expect(canceled.workspaces).toEqual(before)
+    const properties = await app.evaluate(() => globalThis.pickerProperties)
+    expect(properties).toContain('openDirectory')
+    if (process.platform === 'darwin') expect(properties).toContain('createDirectory')
+
+    const folder = join(fixture.root, '新工作区')
+    await mkdir(folder)
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] })
+      dialog.showMessageBox = async (_window, options) => {
+        if (options.detail !== path) throw new Error('Trust prompt must identify the selected folder')
+        return { response: options.cancelId, checkboxChecked: false }
+      }
+    }, folder)
+    const declined = await page.evaluate(() => window.desktop.addWorkspace())
+    expect(declined.workspaces).toEqual(before)
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
+    })
+    await add.click()
+    await expect(page.getByRole('button', { name: '新工作区', exact: true })).toBeVisible()
+    const persisted = JSON.parse(await readFile(join(fixture.dataDir, 'preferences.json'), 'utf8'))
+    expect(persisted.workspaces).toEqual([...before, { path: folder, name: '新工作区' }])
+  } finally {
+    if (app) {
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(w => w.destroy())).catch(() => {})
+      await app.close().catch(() => {})
+    }
+    await fixture.dispose()
+  }
+})
 
 test('Workspaces heading replaces the global sidebar action while scoped creation and shortcuts remain', async () => {
   const fixture = await createFixture()

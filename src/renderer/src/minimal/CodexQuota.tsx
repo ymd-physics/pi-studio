@@ -15,14 +15,15 @@ const reasons: Partial<Record<CodexUsageReason, string>> = {
   'request-failed': 'Could not reach the quota service. Retrying automatically.',
   timeout: 'The quota request timed out. Retrying automatically.',
 }
-function resetCountdown(resetsAt: number | null, now: number): string {
-  if (resetsAt === null || !Number.isFinite(resetsAt)) return 'Reset time unavailable'
+function resetCountdown(resetsAt: number | null, now: number, t: ReturnType<typeof useUiText>): string {
+  if (resetsAt === null || !Number.isFinite(resetsAt)) return t('Reset time unavailable')
   const minutes = Math.ceil((resetsAt * 1000 - now) / 60000)
-  if (minutes <= 0) return 'Reset due · awaiting update'
+  if (minutes <= 0) return t('Reset due · awaiting update')
   const days = Math.floor(minutes / 1440)
   const hours = Math.floor((minutes % 1440) / 60)
   const remainder = minutes % 60
-  return `Resets in ${[days && `${days}d`, hours && `${hours}h`, remainder && `${remainder}m`].filter(Boolean).join(' ')}`
+  const time = [days && t('{n}d', { n: days }), hours && t('{n}h', { n: hours }), remainder && t('{n}m', { n: remainder })].filter(Boolean).join(' ')
+  return t('Resets in {time}', { time })
 }
 
 export function CodexQuota({ usage }: { usage?: CodexUsageSnapshot }) {
@@ -45,18 +46,18 @@ export function CodexQuota({ usage }: { usage?: CodexUsageSnapshot }) {
         <span
           className="quota-window"
           key={window.durationSeconds}
-          title={`${window.remainingPercent.toFixed(1)}% remaining${window.resetsAt !== null && Number.isFinite(window.resetsAt) ? ` · Resets ${new Date(window.resetsAt * 1000).toLocaleString()}` : ''}${usage.capturedAt ? ` · Updated ${new Date(usage.capturedAt).toLocaleTimeString()}` : ''}`}
+          title={`${t('{percent}% remaining', { percent: window.remainingPercent.toFixed(1) })}${window.resetsAt !== null && Number.isFinite(window.resetsAt) ? ` · ${t('Resets {time}', { time: new Date(window.resetsAt * 1000).toLocaleString(document.documentElement.lang || 'en') })}` : ''}${usage.capturedAt ? ` · ${t('Updated {time}', { time: new Date(usage.capturedAt).toLocaleTimeString(document.documentElement.lang || 'en') })}` : ''}`}
         >
           <span>{window.durationSeconds === 18000 ? t('5h') : t('Week')}</span>
           <span className="quota-track" aria-hidden="true">
             <span style={{ width: `${window.remainingPercent}%` }} />
           </span>
-          <span>{Math.round(window.remainingPercent)}{t("% left")}</span>
-          <span className="quota-reset">{resetCountdown(window.resetsAt, now)}</span>
+          <span>{t('{percent}% left', { percent: Math.round(window.remainingPercent) })}</span>
+          <span className="quota-reset">{resetCountdown(window.resetsAt, now, t)}</span>
         </span>
       ))}
       {(reason || usage.stale || usage.state !== 'ready') && (
-        <span className="quota-unavailable" title={reason || (usage.stale ? 'Showing the last known allowance; awaiting fresh data.' : 'Allowance data is unavailable.')}>
+        <span className="quota-unavailable" title={t(reason || (usage.stale ? 'Showing the last known allowance; awaiting fresh data.' : 'Allowance data is unavailable.'))}>
           <Info size={11} />
           {usage.stale ? t('Update delayed') : t('Quota unavailable')}
         </span>

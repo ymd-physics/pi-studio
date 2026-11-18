@@ -49,8 +49,24 @@
 .pp-dialog .pp-footnote { font-size: 11px; color: var(--muted); margin-top: 16px; }
 .pp-dialog .pp-scopes { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 9px; margin: 18px 0; }
 .pp-dialog.pp-workspace { width: 590px; }
-.pp-about-credit { margin-top: 18px; color: var(--secondary); }
-.pp-dialog .pp-about-credit p { margin: 4px 0; font-size: 11px; }
+.pp-about-credit { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 6px; margin: 18px 0; color: var(--secondary); }
+.pp-update > .pp-row { flex-wrap: wrap; }
+.pp-update > .pp-row strong { display: inline; margin-right: 4px; }
+.pp-update > .pp-row > span > span, .pp-update-result small { color: var(--muted); }
+.pp-update button { border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; font-size: 12px; }
+.pp-update-result { border-top: 1px solid var(--line); padding: 12px 15px; }
+.pp-update-result small { display: block; margin-top: 4px; }
+.pp-update-status { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.pp-update .pp-download { background: var(--accent-soft); color: var(--accent-text); }
+.pp-update .pp-notes-toggle { color: var(--accent-text); border: 0; padding: 5px 0; margin-top: 5px; }
+.pp-notes-toggle::before { content: '›' / ''; display: inline-block; margin-right: 6px; }
+.pp-notes-toggle[aria-expanded=true]::before { transform: rotate(90deg); }
+.pp-release-notes { border-top: 1px solid var(--line); margin-top: 5px; padding-top: 8px; overflow-wrap: anywhere; }
+.pp-release-notes :is(h1,h2,h3,h4) { font-size: 13px; margin: 8px 0 3px; text-transform: none; letter-spacing: normal; }
+.pp-release-notes :is(ol,ul) { padding-left: 20px; }
+.pp-about-credit dt { font-weight: 550; }
+.pp-about-credit dd { margin: 0; overflow-wrap: anywhere; }
+.pp-about-credit a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
 .pp-dialog .pp-plugin-version { color: var(--accent-text); }
 .pp-workspace-identity label { display: block; margin-bottom: 7px; color: var(--secondary); }
 .pp-workspace-identity input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--text); }

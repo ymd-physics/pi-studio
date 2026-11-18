@@ -40,11 +40,12 @@ export interface Activity {
   completed: Record<string, RunMetrics>
 }
 export const emptyActivity = (): Activity => ({ thoughts: {}, tools: {}, completed: {} })
-export function elapsed(ms: number): string {
+export function elapsed(ms: number, t?: ReturnType<typeof import('../../../../packages/shared/language').uiText>): string {
   const seconds = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(seconds / 60), rest = String(seconds % 60).padStart(2, '0')
   return seconds < 60
-    ? `${seconds}s`
-    : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
+    ? t?.('{seconds}s', { seconds }) ?? `${seconds}s`
+    : t?.('{minutes}m {seconds}s', { minutes, seconds: rest }) ?? `${minutes}m ${rest}s`
 }
 
 /** UI-local, monotonic measurements. Same accounting as pi-deepseek-tui telemetry:

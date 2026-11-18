@@ -168,7 +168,7 @@ function ImageCard({
         className={`image-card image-card-${scope} image-card-unavailable`}
         role="group"
         title={image.path || image.name}
-        aria-label={`${image.name} preview unavailable`}
+        aria-label={t('{name} preview unavailable', { name: image.name })}
       >
         {caption}
       </div>
@@ -183,8 +183,8 @@ function ImageCard({
         event.currentTarget.focus({ preventScroll: true })
         open()
       }}
-      title={`Open ${image.name}`}
-      aria-label={`Open ${image.name}`}
+      title={t('Open {name}', { name: image.name })}
+      aria-label={t('Open {name}', { name: image.name })}
     >
       {caption}
     </button>
@@ -317,7 +317,7 @@ export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose
       className="image-lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={`Image: ${item.name}`}
+      aria-label={t('Image: {name}', { name: item.name })}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}

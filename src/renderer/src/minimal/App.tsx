@@ -386,7 +386,7 @@ export function App() {
         discardView(live?.handle)
         setRunning(await window.desktop.runningSessions())
         await refreshSessions()
-        if (name === 'delete') setNotice('Session moved to Trash. Separate forks and clones were kept.')
+        if (name === 'delete') setNotice(t('Session moved to Trash. Separate forks and clones were kept.'))
       } catch (e) {
         showError(e)
       }
@@ -443,6 +443,7 @@ export function App() {
               const waitingSessions = running.filter(
                 (live) => live.workspace === workspace.path && (waiting[live.handle] || 0) > 0,
               ).length
+              const waitingLabel = t(waitingSessions === 1 ? '{count} session waiting for your response' : '{count} sessions waiting for your response', { count: waitingSessions })
               return (
                 <section key={workspace.path} className="workspace">
                   <div
@@ -467,7 +468,7 @@ export function App() {
                       void window.desktop
                         .copyIntoWorkspace(workspace.path, '', paths)
                         .then(() => {
-                          setNotice(`Copied ${paths.length} item(s) into ${workspace.name}. Originals kept.`)
+                          setNotice(t('Copied {count} item(s) into {name}. Originals kept.', { count: paths.length, name: workspace.name }))
                           setFileRevision((value) => value + 1)
                         })
                         .catch(showError)
@@ -486,8 +487,8 @@ export function App() {
                       <span
                         className="workspace-attention"
                         role="status"
-                        aria-label={`${waitingSessions} session${waitingSessions === 1 ? '' : 's'} waiting for your response`}
-                        title={`${waitingSessions} session${waitingSessions === 1 ? '' : 's'} waiting for your response`}
+                        aria-label={waitingLabel}
+                        title={waitingLabel}
                       >
                         <MessageCircleMore size={13} aria-hidden="true" />
                         {waitingSessions}
@@ -495,7 +496,7 @@ export function App() {
                     )}
                     <button
                       className="icon-button"
-                      aria-label={`Workspace information for ${workspace.name}`}
+                      aria-label={t('Workspace information for {name}', { name: workspace.name })}
                       title={t("Workspace information")}
                       onClick={() => setWorkspaceInfo(workspace)}
                     >
@@ -505,7 +506,7 @@ export function App() {
                       className="icon-button"
                       disabled={loading}
                       title={t("New conversation or terminal")}
-                      aria-label={`New session in ${workspace.name}`}
+                      aria-label={t('New session in {name}', { name: workspace.name })}
                       aria-haspopup="menu"
                       aria-expanded={creationMenu?.workspace === workspace.path}
                       onClick={(event) => {
@@ -524,8 +525,8 @@ export function App() {
                     <button
                       className="icon-button remove-workspace"
                       disabled={loading}
-                      aria-label={`Remove ${workspace.name}`}
-                      title={`Remove ${workspace.name}`}
+                      aria-label={t('Remove {name}', { name: workspace.name })}
+                      title={t('Remove {name}', { name: workspace.name })}
                       onClick={async () => {
                         if (
                           dirty &&
@@ -563,7 +564,7 @@ export function App() {
                           disabled={loading}
                           aria-current={session?.state.sessionFile === item.path ? 'page' : undefined}
                           data-status={status}
-                          title={`${name} · ${pendingRequests ? `Waiting for your response · ${pendingRequests} pending request${pendingRequests === 1 ? '' : 's'}` : status}`}
+                          title={`${name} · ${pendingRequests ? t(pendingRequests === 1 ? 'Waiting for your response · {count} pending request' : 'Waiting for your response · {count} pending requests', { count: pendingRequests }) : t(status)}`}
                           onClick={() => void navigate(workspace.path, item.path)}
                           onContextMenu={(e) => {
                             e.preventDefault()
@@ -589,7 +590,7 @@ export function App() {
                         >
                           <span
                             className={`session-status is-${status}`}
-                            aria-label={pendingRequests ? t('Waiting for your response') : status}
+                            aria-label={pendingRequests ? t('Waiting for your response') : t(status)}
                           >
                             {pendingRequests ? (
                               <MessageCircleMore size={14} aria-hidden="true" />
@@ -606,7 +607,7 @@ export function App() {
                   {!collapsed.includes(workspace.path) && terminalSessions.filter((terminal) => terminal.workspace === workspace.path).map((terminal) => (
                     <button key={`terminal:${terminal.id}`} className={`session-link terminal-link ${selectedTerminal?.id === terminal.id ? 'selected' : ''}`}
                       data-terminal-id={terminal.id} aria-current={selectedTerminal?.id === terminal.id ? 'page' : undefined}
-                      aria-haspopup="menu" title={`${terminal.name} · ${terminal.state}`} disabled={loading}
+                      aria-haspopup="menu" title={`${terminal.name} · ${t(terminal.state)}`} disabled={loading}
                       onClick={() => selectTerminal(terminal)} onContextMenu={(event) => {
                         event.preventDefault(); menuFocus.current = event.currentTarget; setContext(undefined); setCreationMenu(undefined)
                         setTerminalContext({ id: terminal.id, x: Math.min(event.clientX, window.innerWidth - 238), y: Math.min(event.clientY, window.innerHeight - 155) })
@@ -618,7 +619,7 @@ export function App() {
                         setTerminalContext({ id: terminal.id, x: Math.min(rect.right, window.innerWidth - 238), y: Math.min(rect.top, window.innerHeight - 155) })
                       }}>
                       <Terminal size={13} aria-hidden="true" /><span className="session-label">{terminal.name}</span>
-                      <span className="terminal-live-dot" aria-label={`Terminal ${terminal.state}`} />
+                      <span className="terminal-live-dot" aria-label={t('Terminal {name}', { name: t(terminal.state) })} />
                     </button>
                   ))}
                   {!collapsed.includes(workspace.path) && !sessions[workspace.path]?.length && !terminalSessions.some((terminal) => terminal.workspace === workspace.path) && (
@@ -662,7 +663,7 @@ export function App() {
         )}
         {loading && (
           <div className="opening-indicator" role="status">
-            <LoaderCircle size={13} className="spin" />{' ' + t("Opening") + ' '}{openingKind}…
+            <LoaderCircle size={13} className="spin" />{' '}{t(openingKind === 'conversation' ? 'Opening conversation…' : 'Opening terminal…')}
           </div>
         )}
         <div className="main-body">

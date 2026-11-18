@@ -116,6 +116,8 @@ export interface FileEntry {
 // Extension/event payloads are versioned by the installed Pi, not this app.
 export type PiRecord = { type: string; [key: string]: any }
 export interface DesktopAPI {
+  checkUpdate(): Promise<import('./updates').UpdateInfo>
+  downloadUpdate(version: string): Promise<'saved' | 'canceled'>
   boot(): Promise<{ preferences: Preferences; runtime: string }>
   preferences(patch: Partial<Pick<Preferences, 'theme' | 'font' | 'enterToSend' | 'language' | 'terminalFontSize'>>): Promise<Preferences>
   terminals(): Promise<TerminalInfo[]>

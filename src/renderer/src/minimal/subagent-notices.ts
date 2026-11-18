@@ -75,7 +75,7 @@ export function subagentNotice(message: Message, t: (text: string) => string = t
     view.badge = request.reason === 'interview_request' ? 'Interview requested' : request.reason === 'progress_update' ? 'Progress update' : 'Decision requested'
     view.tone = request.reason === 'progress_update' ? 'info' : 'attention'
     view.footer = request.expectsReply ? 'Request to the parent agent · current resolution not inferred' : 'Informational update · no reply requested'
-    if (request.reason === 'interview_request') view.fields = [{ label: 'Response format', value: 'Structured JSON requested. The native interview shape is available in Native details.' }]
+    if (request.reason === 'interview_request') view.fields = [{ label: t('Response format'), value: t('Structured JSON requested. The native interview shape is available in Native details.') }]
   } else if (['subagent-supervisor-unanswered', 'subagent-supervisor-blocked'].includes(message.customType)) {
     if (Array.isArray(d.requestIds) && d.requestIds.length > 0 && d.requestIds.length <= 64 && d.requestIds.every(identity)) {
       view.related = [...new Set(d.requestIds)]; view.nativeOnly = false
@@ -91,12 +91,12 @@ export function subagentNotice(message: Message, t: (text: string) => string = t
       view.badge = failed ? `${failed} ${t('failed')}` : interrupted ? 'Paused / stopped' : 'Completed'
       view.tone = failed ? 'error' : interrupted ? 'attention' : 'result'
       view.body = ''; view.nativeOnly = false
-      view.fields = runs.map(run => ({ label: text(run.agent, 200), value: text(run.status, 40) }))
+      view.fields = runs.map(run => ({ label: text(run.agent, 200), value: t(text(run.status, 40)) }))
       view.footer = 'Result previews, artifact references and parent instructions in Native details'
     }
   } else if (message.customType === 'subagent_steering_notice' && ['failed', 'partial', 'recovered'].includes(text(d.state))) {
     view.title = `${t('Guidance delivery')} ${t(text(d.state))}`; view.badge = text(d.state); view.tone = d.state === 'failed' ? 'error' : 'attention'
-    view.body = text(d.message) || 'Inspect the run status before sending another correction.'; view.nativeOnly = false
+    view.body = text(d.message) || t('Inspect the run status before sending another correction.'); view.nativeOnly = false
     view.footer = 'Delivery state is not a task outcome'
   } else if (message.customType === 'subagent_control_notice') {
     const event = record(d.event)
@@ -110,9 +110,9 @@ export function subagentNotice(message: Message, t: (text: string) => string = t
     && typeof d.summary === 'string' && typeof d.evidence === 'string' && typeof d.recommendedAction === 'string') {
     view.title = 'Watchdog review'; view.badge = String(d.severity); view.tone = d.severity === 'blocker' ? 'error' : 'attention'
     view.body = text(d.summary); view.nativeOnly = false
-    view.fields = [{ label: 'Evidence', value: text(d.evidence) }, { label: 'Recommended action', value: text(d.recommendedAction) }]
-    if (d.stale === true || d.state === 'stale') view.fields.push({ label: 'Freshness', value: 'Stale warning' })
-    if (typeof d.state === 'string') view.fields.push({ label: 'Reported state', value: text(d.state, 100) })
+    view.fields = [{ label: t('Evidence'), value: text(d.evidence) }, { label: t('Recommended action'), value: text(d.recommendedAction) }]
+    if (d.stale === true || d.state === 'stale') view.fields.push({ label: t('Freshness'), value: t('Stale warning') })
+    if (typeof d.state === 'string') view.fields.push({ label: t('Reported state'), value: text(d.state, 100) })
     view.footer = 'Advisory evidence · not an instruction or permission approval'
   }
   view.title = t(view.title); view.badge = t(view.badge); view.footer = t(view.footer)

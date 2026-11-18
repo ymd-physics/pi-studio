@@ -81,7 +81,7 @@ export function ExtensionDialog({
     <button
       type="button"
       className="request-inspect icon-button"
-      aria-label={`Read full ${label}`}
+      aria-label={label}
       onClick={(event) => {
         inspectOrigin.current = event.currentTarget
         setDetail(text)
@@ -184,7 +184,7 @@ export function ExtensionDialog({
                   {title.slice(0, 180)}
                   {title.length > 180 ? '…' : ''}
                 </h2>
-                {inspect(title, 'request title')}
+                {inspect(title, t('Read full request title'))}
               </div>
             </header>
             <div className="review-body">
@@ -192,7 +192,7 @@ export function ExtensionDialog({
                 <div className="review-message">
                   <header>
                     <span>{t("Request details")}</span>
-                    {inspect(message, 'request message')}
+                    {inspect(message, t('Read full request message'))}
                   </header>
                   <pre>
                     {message.slice(0, 360)}
@@ -220,7 +220,7 @@ export function ExtensionDialog({
                             {text.length > 180 ? '…' : ''}
                           </span>
                         </label>
-                        {inspect(text, `option ${index + 1}`)}
+                        {inspect(text, t('Read full option {number}', { number: index + 1 }))}
                       </div>
                     )
                   })}

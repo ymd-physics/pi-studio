@@ -1,5 +1,6 @@
+import { checkRelease, saveDmg } from './updates'
 import { uiText } from '../../../packages/shared/language'
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard, nativeImage } from 'electron'
+import { app, net, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard, nativeImage } from 'electron'
 import { join, dirname, delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { shellEnv } from 'shell-env'
@@ -109,6 +110,8 @@ else {
         return resolveLocalLink(service.workspace(handle), href, baseDir)
       }
       let boot: ReturnType<DesktopService['boot']> | undefined
+      let offered: Awaited<ReturnType<typeof checkRelease>>['asset']
+      let downloading = false
       const handlers: Record<string, (...args: any[]) => any> = {
         boot: () =>
           (boot ||= service
@@ -117,6 +120,25 @@ else {
               boot = undefined
               throw error
             })),
+        checkUpdate: async () => {
+          offered = undefined
+          const release = await checkRelease(app.getVersion(), process.platform, process.arch, (url, init) => net.fetch(url, init))
+          offered = release.asset
+          return release.info
+        },
+        downloadUpdate: async (version) => {
+          const asset = offered
+          if (!asset || asset.version !== version || downloading) throw new Error('Update unavailable or download in progress')
+          downloading = true
+          try {
+            const choice = await dialog.showSaveDialog(window!, {
+              defaultPath: join(app.getPath('downloads'), asset.name), filters: [{ name: 'DMG', extensions: ['dmg'] }],
+            })
+            if (choice.canceled || !choice.filePath) return 'canceled'
+            await saveDmg(asset, choice.filePath, (url, init) => net.fetch(url, init))
+            return 'saved'
+          } finally { downloading = false }
+        },
         codexUsage: () => codexUsage!.snapshot(),
         plugins: (workspace) => service.plugins(workspace),
         preferences: (patch) => service.updatePreferences(patch || {}),
@@ -149,7 +171,7 @@ else {
           return text
         },
         addWorkspace: async () => {
-          const answer = await dialog.showOpenDialog(window!, { properties: ['openDirectory'] })
+          const answer = await dialog.showOpenDialog(window!, { properties: ['openDirectory', 'createDirectory'] })
           if (answer.canceled) return service.preferences
           const trust = await dialog.showMessageBox(window!, {
             type: 'warning',

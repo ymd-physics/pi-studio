@@ -56,7 +56,14 @@ export function SubagentFocusCard({ status, active, requestForAgent, onRequest }
   const end = terminal(agent) ? (observedEnds.get(agent.id)?.state === agent.state ? observedEnds.get(agent.id)!.time : timestamp(agent.endedAt) ?? now) : timestamp(agent.endedAt) ?? (status?.error ? snapshot?.updatedAt ?? now : now)
   const start = timestamp(agent.startedAt)
   const seconds = start === undefined ? undefined : Math.max(0, Math.floor((end - start) / 1000))
-  const elapsed = seconds === undefined ? 'Time unavailable' : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
+  const elapsed = seconds === undefined ? t('Time unavailable') : t('{minutes}m {seconds}s', { minutes: Math.floor(seconds / 60), seconds: String(seconds % 60).padStart(2, '0') })
+  // The status adapter joins progress fields with this separator. Only localize
+  // known status/count fields; leave tool names and diagnostic text untouched.
+  const activity = agent.activity?.split(' · ').map(part => {
+    const count = /^(\d+) tools$/.exec(part)
+    if (count) return t('{count} tools', { count: count[1] })
+    return ['Result in conversation', 'Delegation failed', 'Final child status unavailable', 'Delegation failed; child status unavailable', 'running', 'queued', 'paused', 'stopped', 'failed', 'waiting', 'waiting_for_user', 'waiting_for_supervisor', 'awaiting_supervisor', 'needs_attention'].includes(part) ? t(part) : part
+  }).join(' · ')
   const attentionAgents = agents.filter(attention)
   const selectAttention = () => {
     const next = (attentionAgents.findIndex(item => item.id === agent.id) + 1) % attentionAgents.length
@@ -71,8 +78,8 @@ export function SubagentFocusCard({ status, active, requestForAgent, onRequest }
     <section className="subagent-focus" aria-label={t("Subagent activity")}>
       <div className="subagent-focus-header">
         <strong>{t("Subagents")}</strong>
-        <span className="subagent-focus-counts">{agents.filter(item => item.state === 'running').length}{' ' + t("running ·") + ' '}{agents.filter(item => item.state === 'queued').length}{' ' + t("queued ·") + ' '}{agents.length}{' ' + t("total")}{snapshot?.omitted ? ` · ${snapshot.omitted} more not reported` : ''}</span>
-        {attentionAgents.length > 0 && <button className="subagent-focus-attention" onClick={selectAttention}>{attentionAgents.length}{' ' + t("needs attention")}</button>}
+        <span className="subagent-focus-counts">{t('{running} running · {queued} queued · {total} total', { running: agents.filter(item => item.state === 'running').length, queued: agents.filter(item => item.state === 'queued').length, total: agents.length })}{snapshot?.omitted ? ` · ${t('{count} more not reported', { count: snapshot.omitted })}` : ''}</span>
+        {attentionAgents.length > 0 && <button className="subagent-focus-attention" onClick={selectAttention}>{t('{count} needs attention', { count: attentionAgents.length })}</button>}
         <div className="subagent-focus-pager">
           <button aria-label={t("Previous agent")} disabled={index === 0} onClick={() => setSelectedId(agents[index - 1].id)}><ChevronLeft /></button>
           <span>{index + 1} / {agents.length}</span>
@@ -83,7 +90,7 @@ export function SubagentFocusCard({ status, active, requestForAgent, onRequest }
       <article className="subagent-focus-card" data-state={agent.state}>
         <div className="subagent-focus-top">
           <span className="subagent-focus-icon"><Icon className={agent.state === 'running' ? 'subagent-focus-spin' : undefined} aria-hidden="true" /></span>
-          <strong className="subagent-focus-name" title={agent.name}>{agent.name || t('Name unavailable')}</strong>
+          <strong className="subagent-focus-name" title={agent.name}>{agent.name === 'Subagent' ? t('Subagent') : agent.name || t('Name unavailable')}</strong>
         </div>
         <div className="subagent-focus-status">
           <span className="subagent-focus-state">{t(labels[agent.state])}</span>
@@ -93,9 +100,9 @@ export function SubagentFocusCard({ status, active, requestForAgent, onRequest }
         <p className="subagent-focus-task" title={agent.task}>{agent.task || t('Task unavailable')}</p>
         <div className="subagent-focus-meta">
           <span className="subagent-focus-model" title={agent.model}>{agent.model || t('Model unavailable')}</span>
-          <span className="subagent-focus-thinking" title={t("Thinking level")}>{agent.thinking || t('Thinking unavailable')}</span>
+          <span className="subagent-focus-thinking" title={t("Thinking level")}>{t(agent.thinking || 'Thinking unavailable')}</span>
         </div>
-        <span className="subagent-focus-activity" title={agent.activity}><Terminal aria-hidden="true" /><span>{agent.activity || t('Activity unavailable')}</span></span>
+        <span className="subagent-focus-activity" title={activity}><Terminal aria-hidden="true" /><span>{activity || t('Activity unavailable')}</span></span>
       </article>
     </section>
   )

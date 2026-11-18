@@ -21,8 +21,8 @@ export function ContextMeter({ usage }: { usage?: ContextUsage }) {
     ? `${count(usage.tokens!)} / ${count(usage.contextWindow)}`
     : available
       ? `— / ${count(usage.contextWindow)}`
-      : 'Unavailable'
-  const label = percent === undefined ? 'Unknown' : `${Number(percent.toFixed(1))}%`
+      : t('Unavailable')
+  const label = percent === undefined ? t('Unknown') : `${Number(percent.toFixed(1))}%`
   return (
     <div
       className={`context-meter ${tone} ${open ? 'open' : ''}`}
@@ -33,7 +33,7 @@ export function ContextMeter({ usage }: { usage?: ContextUsage }) {
       <button
         type="button"
         className="context-toggle"
-        aria-label={`Context window: ${label}, ${amount}`}
+        aria-label={t('Context window: {label}, {amount}', { label, amount })}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         onKeyDown={(e) => {
@@ -54,7 +54,7 @@ export function ContextMeter({ usage }: { usage?: ContextUsage }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent === undefined ? undefined : filled}
-          aria-valuetext={known ? `${usage.tokens} of ${usage.contextWindow} tokens` : 'Estimate unavailable'}
+          aria-valuetext={known ? t('{used} of {capacity} tokens', { used: usage.tokens!, capacity: usage.contextWindow }) : t('Estimate unavailable')}
           style={{ color: `color-mix(in srgb, var(--accent), #db5757 ${(filled * filled) / 100}%)` }}
         >
           <circle className="context-ring-track" cx="14" cy="14" r="10" />

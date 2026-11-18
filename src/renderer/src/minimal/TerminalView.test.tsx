@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { TerminalInfo, TerminalOutputPacket, TerminalTransport } from '../../../../packages/shared/terminal'
+import { LanguageContext } from './language'
 import { TerminalView, type TerminalViewProps } from './TerminalView'
 
 const mocks = vi.hoisted(() => ({ instances: [] as any[], fits: 0 }))
@@ -17,7 +18,7 @@ vi.mock('@xterm/xterm', () => ({ Terminal: class {
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: class { fit() { mocks.fits++ } } }))
 let listener: (packet: TerminalOutputPacket) => void
 const unsubscribe = vi.fn()
-function setup(overrides: Partial<TerminalViewProps> = {}) {
+function setup(overrides: Partial<TerminalViewProps> = {}, language: 'en' | 'zh-CN' = 'en') {
   const info: TerminalInfo = { id: 'one', name: 'Shell', workspace: '/', cwd: '/', shell: 'zsh', state: 'ready', mode: 'command' }
   const transport: TerminalTransport = {
     attach: vi.fn(async () => {}), acknowledge: vi.fn(async () => {}), resize: vi.fn(async () => {}), write: vi.fn(async () => {}), submit: vi.fn(async () => {}),
@@ -25,7 +26,7 @@ function setup(overrides: Partial<TerminalViewProps> = {}) {
     onOutput: vi.fn(fn => { listener = fn; return unsubscribe }), copyText: vi.fn(async () => {}), pasteText: vi.fn(async () => ''),
   }
   const props: TerminalViewProps = { info, visible: true, transport, onFontSizeChange: vi.fn(), toggleSidebar: vi.fn(), onClose: vi.fn(), ...overrides }
-  return { props, transport, view: render(<TerminalView {...props} />) }
+  return { props, transport, view: render(<TerminalView {...props} />, { wrapper: ({ children }) => <LanguageContext.Provider value={language}>{children}</LanguageContext.Provider> }) }
 }
 afterEach(() => { cleanup(); mocks.instances.length = 0; mocks.fits = 0; unsubscribe.mockClear() })
 it('subscribes before attach, acknowledges after parsing, and cleans up; never fits hidden output', async () => {
@@ -268,6 +269,16 @@ it('bounds drafts and commands without silently truncating them', () => {
   expect(transport.submit).not.toHaveBeenCalled()
   fireEvent.change(editor, { target: { value: 'b'.repeat(65537) } })
   expect(editor).toHaveProperty('value', 'a'.repeat(4097))
+})
+it('explains oversized direct-mode pastes in Chinese without sending any input', async () => {
+  const { transport } = setup({ info: { id: 'one', name: 'Shell', workspace: '/', cwd: '/', shell: 'zsh', state: 'ready', mode: 'direct' } }, 'zh-CN')
+  await waitFor(() => expect(transport.attach).toHaveBeenCalled())
+  vi.mocked(transport.pasteText).mockResolvedValueOnce('界'.repeat(20481)) // just over 60 KiB in UTF-8
+  fireEvent.contextMenu(screen.getByLabelText('终端输出'))
+  fireEvent.click(screen.getByRole('menuitem', { name: '粘贴' }))
+  expect((await screen.findByRole('alert')).textContent).toContain('粘贴内容超过 60 KiB，未向终端发送任何内容。')
+  expect(transport.write).not.toHaveBeenCalled()
+  expect(mocks.instances.at(-1).paste).not.toHaveBeenCalled()
 })
 it('offers clipboard actions without sending a command-mode output paste to the shell', async () => {
   const { transport } = setup()
