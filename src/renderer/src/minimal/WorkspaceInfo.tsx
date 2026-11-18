@@ -1,0 +1,54 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
+import type { Workspace } from '../../../../packages/shared/desktop'
+import type { PluginInventory } from '../../../../packages/shared/plugins'
+import { PreferencesDialog } from './PreferencesPanel'
+import { PluginList, usePluginInventory } from './PluginList'
+
+export interface WorkspaceInfoProps {
+  workspace: Workspace
+  onClose(): void
+  onRename(name: string): Promise<void>
+  loadPlugins(): Promise<PluginInventory>
+}
+
+export function WorkspaceInfo(props: WorkspaceInfoProps) {
+  // Remount inventory state when the selected workspace changes.
+  return <WorkspaceInfoContent key={props.workspace.path} {...props} />
+}
+
+function WorkspaceInfoContent({ workspace, onClose, onRename, loadPlugins }: WorkspaceInfoProps) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(workspace.name)
+  const [saving, setSaving] = useState(false)
+  const [renameError, setRenameError] = useState('')
+  const saveName = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (saving || !name.trim()) return
+    setSaving(true); setRenameError('')
+    try { await onRename(name.trim()); setEditing(false) }
+    catch (error) { setRenameError(error instanceof Error ? error.message : String(error)) }
+    finally { setSaving(false) }
+  }
+  const [scope, setScope] = useState<'local' | 'global'>('local')
+  const { inventory, error, retry } = usePluginInventory(loadPlugins)
+  return <PreferencesDialog label="Workspace information" onClose={onClose} workspace>
+    <section className="pp-content">
+      <header className="pp-heading"><h2>Workspace information<small>{workspace.name}</small></h2><button autoFocus aria-label="Close workspace information" onClick={onClose}><X size={17} /></button></header>
+      <div className="pp-body">
+        <div className="pp-workspace-identity">
+          {editing ? <form onSubmit={(event) => void saveName(event)}>
+            <label htmlFor="workspace-display-name">Display name</label>
+            <input id="workspace-display-name" autoFocus value={name} disabled={saving} maxLength={160} onChange={(event) => setName(event.target.value)} />
+            <p className="pp-footnote">Only the display name changes. Your folder, sessions and terminal paths stay the same.</p>
+            {renameError && <p role="alert" className="error-text">{renameError}</p>}
+            <div className="pp-rename-actions"><button type="button" disabled={saving} onClick={() => setEditing(false)}>Cancel</button><button type="submit" disabled={saving || !name.trim()}>{saving ? 'Saving…' : 'Save'}</button></div>
+          </form> : <button className="pp-rename-workspace" onClick={() => { setName(workspace.name); setRenameError(''); setEditing(true) }}>Rename workspace…</button>}
+          <p className="pp-path">{workspace.path}</p>
+        </div>
+        <div className="pp-scopes" aria-label="Plugin scope">{(['local', 'global'] as const).map((value) => <button key={value} aria-pressed={scope === value} onClick={() => setScope(value)}>{value === 'local' ? 'Local' : 'Global'}{inventory && <small> {inventory[value].length}</small>}</button>)}</div>
+        <PluginList key={scope} inventory={inventory} error={error} scope={scope} onRetry={retry} />
+      </div>
+    </section>
+  </PreferencesDialog>
+}

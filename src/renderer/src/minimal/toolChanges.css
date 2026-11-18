@@ -1,0 +1,28 @@
+.tool-changes {
+  --change-add: #175dc1;
+  --change-delete: #b42332;
+  min-width: 0;
+}
+:root.dark .tool-changes {
+  --change-add: #8bbaff;
+  --change-delete: #ff9ca5;
+}
+.tool-changes p { color: var(--secondary); font-size: 12px; }
+.change-path { font-family: var(--mono); overflow-wrap: anywhere; }
+.change-lines {
+  overflow: auto;
+  max-height: 480px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: 12px/1.6 var(--mono);
+  background: var(--sidebar);
+}
+.change-line { display: flex; width: max-content; min-width: 100%; white-space: pre; }
+.change-line code { font: inherit; padding-right: 12px; }
+.change-number { flex: 0 0 6ch; text-align: right; padding-right: 1ch; user-select: none; border-right: 1px solid var(--line); }
+.change-sign { flex: 0 0 3ch; text-align: center; user-select: none; }
+.change-added { color: var(--change-add); background: color-mix(in srgb, var(--change-add) 7%, transparent); }
+.change-deleted { color: var(--change-delete); background: color-mix(in srgb, var(--change-delete) 7%, transparent); }
+.tool-changes details { margin-top: 12px; }
+.tool-changes summary { cursor: pointer; color: var(--secondary); font-size: 12px; }
+.tool-group .tool-diff-tag b.state-succeeded { color: var(--accent-text); }

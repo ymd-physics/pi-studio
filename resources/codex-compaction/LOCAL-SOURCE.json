@@ -1,0 +1,37 @@
+{
+  "createdAt": "2026-10-23T21:37:34.870747+08:00",
+  "upstream": {
+    "name": "@ogulcancelik/pi-codex-compaction",
+    "version": "0.1.6",
+    "repository": "https://github.com/ogulcancelik/pi-extensions",
+    "directory": "packages/pi-codex-compaction",
+    "license": "MIT"
+  },
+  "source": "verified installed 0.1.6 with local tools-compat; not downloaded latest",
+  "installedSourceFiles": {
+    "package.json": "954d9ee73fa611164cdb44c4d03e5b987765b3db5784d87c5a1fbe4b12c3c440",
+    "index.ts": "41581a4667cf849653110698999997434a931b48360f75eb3549f763d5ea11d0",
+    "config.ts": "77040621d19308df5c3a53fe8ec3bea0705aceb53f45555fc4cdf1924745fbd6",
+    "native-compaction.ts": "e4fb9dd3230e313c8ea19e2a6ba040826cca96c88e1ade484ac672938cf3ddcc",
+    "README.md": "c351a62ba6ca945278e6cafc4b7172c34290b29b4fc906a364cb82c371395398",
+    "LICENSE": "3303d74916008e27e802ad574fbdb1c4e892e7c0f540e2d6b0f1ed7953a594cd"
+  },
+  "upstreamUnpatchedRuntimeFiles": {
+    "native-compaction.ts": "3c59d841ae5fd0b5d2f087b832006ee577e8beef07a9482204d3f24e132192fd",
+    "index.ts": "f9d6c868eec22e095c792c3ec94f42c85c553dfdd2cc1858d7b3fcd32ef6b48a"
+  },
+  "localFiles": {
+    "package.json": "d503b0ead3b37acb20740731bdf1bbb8f040236c3e1b41af73a8319c5dcce9bb",
+    "index.ts": "41581a4667cf849653110698999997434a931b48360f75eb3549f763d5ea11d0",
+    "config.ts": "77040621d19308df5c3a53fe8ec3bea0705aceb53f45555fc4cdf1924745fbd6",
+    "native-compaction.ts": "e4fb9dd3230e313c8ea19e2a6ba040826cca96c88e1ade484ac672938cf3ddcc",
+    "README.md": "f8fc41310ff3579645416dc194b30f1580d0d8b8977126f191ee6983ced80961",
+    "LICENSE": "3303d74916008e27e802ad574fbdb1c4e892e7c0f540e2d6b0f1ed7953a594cd"
+  },
+  "runtimeChangesComparedWithInstalledCopy": [],
+  "metadataChanges": [
+    "private package; explicit local check/test scripts; removed old development host dependency",
+    "README local-maintenance banner"
+  ],
+  "compatibilityPatchSha256": "9c2332f30281880407609cf77d8375d3b455b250a74a4bc77c112fea9c14551b"
+}

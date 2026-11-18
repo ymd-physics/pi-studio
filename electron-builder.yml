@@ -1,0 +1,32 @@
+appId: app.pi.minimal-desktop
+productName: Pi Studio
+directories:
+  output: dist
+files:
+  - out/**
+  - package.json
+  - LICENSE
+  - resources/pi-deepseek-tui-LICENSE
+  - resources/desktop-session-guard.mjs
+  - resources/desktop-rpc.mjs
+  - resources/desktop-subagents.mjs
+  - resources/desktop-subagent-status.mjs
+  - resources/codex-compaction/**
+  - resources/terminal/**
+  - packages/shared/codex-model.ts
+asarUnpack:
+  - node_modules/node-pty/**
+  - resources/desktop-session-guard.mjs
+  - resources/desktop-rpc.mjs
+  - resources/desktop-subagents.mjs
+  - resources/desktop-subagent-status.mjs
+  - resources/codex-compaction/**
+  - resources/terminal/**
+  - packages/shared/codex-model.ts
+asar: true
+npmRebuild: false
+mac:
+  icon: resources/icon.png
+  category: public.app-category.developer-tools
+  identity: null
+  notarize: false

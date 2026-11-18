@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src/main/minimal/**/*.ts", "src/main/workspace-fs.ts", "src/main/login-shell-environment.ts", "src/preload/minimal.ts", "packages/shared/desktop.ts", "electron.vite.config.ts"]
+}

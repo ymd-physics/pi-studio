@@ -1,0 +1,56 @@
+.composer-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 10px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.composer-footer-left {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.composer-footer-left:empty {
+  display: none;
+}
+
+.composer-footer .codex-quota {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 4px 10px;
+}
+
+.composer-footer .quota-window {
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  min-width: 0;
+}
+
+.composer-footer .quota-reset {
+  overflow-wrap: anywhere;
+}
+
+.composer-footer .quota-track {
+  flex-shrink: 0;
+}
+
+.composer-status {
+  overflow-wrap: anywhere;
+}
+
+.composer-shortcuts {
+  margin-left: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+}
