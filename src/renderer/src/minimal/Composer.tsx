@@ -21,6 +21,9 @@ interface Props {
   busy: boolean
   loading: boolean
   sending?: boolean
+  references?: string[]
+  addReferences?: (paths: string[]) => void
+  removeReference?: (path: string) => void
   attachments?: Attachment[]
   attach?: (inputs?: AttachmentInput[]) => Promise<boolean>
   removeAttachment?: (id: string) => Promise<void>
@@ -44,6 +47,7 @@ export function Composer({
   busy,
   loading,
   sending,
+  references = [], addReferences, removeReference,
   attachments = [],
   attach,
   removeAttachment,
@@ -57,6 +61,9 @@ export function Composer({
   const t = useUiText()
   const [suggestion, setSuggestion] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [dropped, setDropped] = useState<{file: File; path: string}[]>([])
+  const pending = dropped[0]
+  const nextDrop = () => setDropped(old => old.slice(1))
   const attachFiles = async (files: File[]) => {
     if (!attach || loading || sending) return
     const inputs: AttachmentInput[] = []
@@ -119,9 +126,28 @@ export function Composer({
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
-          void attachFiles(Array.from(e.dataTransfer.files))
+          if (!attach || loading || sending) return
+          const dirs: string[] = [], choices: typeof dropped = []
+          for (const item of Array.from(e.dataTransfer.items)) {
+            const file = item.getAsFile()
+            if (!file) continue
+            const path = window.desktop.pathForFile(file)
+            if (item.webkitGetAsEntry()?.isDirectory && path) dirs.push(path)
+            else choices.push({ file, path })
+          }
+          if (dirs.length) addReferences?.(dirs)
+          setDropped(old => [...old, ...choices])
         }}
       >
+        {pending && <section className="drop-choice" aria-label={t('Dropped file')}>
+          <div className="drop-file" title={pending.path || pending.file.name}><FileText size={16} aria-hidden="true" /><span>{pending.file.name}</span></div>
+          <div className="drop-actions"><button disabled={!pending.path || loading || sending} aria-label={t('Reference original')} title={t('Reference original')} onClick={() => { addReferences?.([pending.path]); nextDrop() }}>{t('Reference')}</button>
+            <button disabled={loading || sending} aria-label={t('Copy to workspace')} title={t('Copy to workspace')} onClick={() => { nextDrop(); void attachFiles([pending.file]) }}>{t('Create copy')}</button>
+            <button aria-label={t('Cancel')} title={t('Cancel')} onClick={nextDrop}><X size={14} /></button></div>
+        </section>}
+        {!!references.length && <div className="attachment-list" aria-label={t('Path references')}>{references.map(path => <div className="path-reference" key={path}>
+          <span className="reference-name" tabIndex={0} aria-label={`@${path}`} title={`@${path}`}><b aria-hidden="true">@</b>{path.split(/[\\/]/).filter(Boolean).pop() || path}</span><button disabled={loading || sending} aria-label={t('Remove reference {path}', { path })} onClick={() => removeReference?.(path)}><X size={12} /></button>
+        </div>)}</div>}
         {!!attachments.length && (
           <div className="attachment-list" aria-label={t("Draft attachments")}>
             {attachments.map((a) => (
@@ -209,6 +235,7 @@ export function Composer({
             }
             if (e.key === 'Enter' && !e.shiftKey && (enterToSend || e.metaKey || e.ctrlKey || e.altKey)) {
               e.preventDefault()
+              if (pending) return
               if (suggestions.length && !commands.some((c) => `/${c.name}` === draft))
                 setDraft(`/${suggestions[suggestion]?.name || suggestions[0].name} `)
               else void send(e.altKey ? 'followUp' : 'steer')
@@ -287,7 +314,7 @@ export function Composer({
               className="send-button"
               aria-label={busy ? t('Send steering message') : t('Send message')}
               title={busy ? t('Send steering message') : t('Send message')}
-              disabled={(!draft.trim() && !attachments.length) || loading || sending}
+              disabled={(!draft.trim() && !attachments.length && !references.length) || !!pending || loading || sending}
               onClick={() => void send()}
             >
               <ArrowUp size={20} />

@@ -40,6 +40,25 @@ test('workspace file menus, native clipboard and image/file attachments', async 
     }
     const dropped = join(fixture.root, 'dropped.txt')
     await writeFile(dropped, 'Copied, not moved')
+    await drop(input, original)
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.locator('.path-reference, .attachment-chip')).toHaveCount(0)
+    await drop(input, original)
+    await page.getByRole('button', { name: 'Reference original' }).click()
+    await expect(page.locator('.reference-name')).toHaveText('@论文 sample.txt')
+    await expect(page.locator('.reference-name')).toHaveAttribute('title', '@' + original)
+    await drop(input, fixture.agentDir)
+    await expect(page.locator('.path-reference')).toHaveCount(2)
+    await expect(page.locator('.drop-choice')).toHaveCount(0)
+    await page.getByRole('button', { name: `Remove reference ${fixture.agentDir}`, exact: true }).click()
+    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    await expect.poll(() => fixture.requests.at(-1)?.messages.at(-1)?.content && JSON.stringify(fixture.requests.at(-1).messages.at(-1).content)).toContain('@' + original)
+    await expect(page.locator('.path-reference')).toHaveCount(0)
+    expect(await readdir(join(fixture.workspace, '.pi/attachments')).catch(e => e.code === 'ENOENT' ? [] : Promise.reject(e))).toEqual([])
+    await drop(input, original)
+    await page.getByRole('button', { name: 'Copy to workspace', exact: true }).click()
+    await expect(page.locator('.attachment-chip')).toContainText('论文 sample.txt')
+    await page.getByRole('button', { name: 'Remove attachment 论文 sample.txt' }).click()
     const processesBefore = await page.evaluate(() => window.desktop.runningSessions())
     await drop(page.locator('.workspace-heading').first(), dropped)
     await expect
@@ -117,7 +136,7 @@ test('workspace file menus, native clipboard and image/file attachments', async 
     // Wait for settlement before hovering a control whose position changes when
     // the composer switches from Stop to Send.
     await expect(page.getByRole('button', { name: 'Stop generation' })).toHaveCount(0)
-    await expect(page.locator('.run-metrics')).toBeVisible()
+    await expect(page.locator('.run-metrics').last()).toBeVisible()
     // Display-only surfaces read the native image blocks and the attachment path block.
     await expect(page.getByRole('button', { name: 'Open pasted-image.png' })).toBeVisible()
     await expect

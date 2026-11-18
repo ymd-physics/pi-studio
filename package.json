@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A minimal desktop frontend for your installed Pi",
   "main": "./out/main/index.js",
   "author": "YM",

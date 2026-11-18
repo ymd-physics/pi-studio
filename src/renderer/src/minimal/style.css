@@ -476,6 +476,19 @@ textarea {
   gap: 8px;
   padding: 12px 14px 0;
 }
+.drop-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 0 14px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); }
+.drop-file, .drop-actions, .path-reference { display: inline-flex; align-items: center; }
+.drop-file { flex: 1 1 10em; min-width: 0; gap: 7px; color: var(--secondary); font-size: 12px; }
+.drop-file svg { flex: none; color: var(--muted); }
+.drop-file span, .reference-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop-actions { gap: 3px; margin-left: auto; }
+.drop-actions button, .path-reference button { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 2px 6px; border: 0; background: transparent; color: var(--secondary); font: inherit; font-size: 12px; border-radius: 5px; }
+.drop-actions button:first-child { color: var(--accent-text); }
+.drop-actions button:hover:not(:disabled), .path-reference button:hover:not(:disabled) { background: var(--control-wash); }
+.path-reference { min-width: 0; max-width: min(100%, 32ch); gap: 2px; padding-left: 7px; border: 1px solid var(--line); border-radius: 7px; color: var(--secondary); background: var(--surface); }
+.reference-name { font: 12px/1.5 var(--font); }
+.reference-name b { color: var(--accent-text); font-weight: 550; margin-right: 2px; }
+.path-reference button { flex: none; color: var(--muted); }
 .attachment-chip {
   display: flex;
   align-items: center;

@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { PluginInventory } from '../../../../packages/shared/plugins'
 import { PreferencesPanel } from './PreferencesPanel'
+import { LanguageContext } from './language'
 import { WorkspaceInfo } from './WorkspaceInfo'
 import { PluginList } from './PluginList'
 import { version } from '../../../../package.json'
@@ -48,6 +49,16 @@ it('PreferencesPanel uses category rail, drill-ins, bilingual preview and actual
   fireEvent.click(screen.getByRole('button', { name: 'Plugins' }))
   expect(await screen.findByText('Permissions')).toBeTruthy()
   expect(screen.queryByText('Project plugin')).toBeNull()
+})
+
+it.each(['en', 'zh-CN'] as const)('keeps both font sample lines in the %s interface', async language => {
+  const zh = language === 'zh-CN'
+  render(<LanguageContext.Provider value={language}><PreferencesPanel {...defaults()} /></LanguageContext.Provider>)
+  fireEvent.click(screen.getByRole('button', { name: zh ? /^字体/ : /^Font Conversation/ }))
+  const preview = screen.getByLabelText(zh ? '字体预览' : 'Font preview')
+  expect(preview.textContent).toBe('A little space to think.给想法留一点空间。')
+  expect(preview.querySelectorAll('br')).toHaveLength(1)
+  await act(async () => {})
 })
 
 it('PreferencesPanel opens natively, handles native Escape cancel and restores opener focus', async () => {

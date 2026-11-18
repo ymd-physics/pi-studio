@@ -63,6 +63,7 @@ export function SessionView({
   const subagentRevision = useRef(0)
   const [draft, setDraft] = useState('')
   const [requestNavigation, setRequestNavigation] = useState<{ requestId: string; sequence: number }>()
+  const [references, setReferences] = useState<string[]>([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [attaching, setAttaching] = useState(false)
   const attachmentOperation = useRef(false)
@@ -570,13 +571,17 @@ export function SessionView({
   const sendDraft = async (mode: 'steer' | 'followUp') => {
     const revision = dispatchRevision.current
     const message = draft.trim()
-    if ((!message && !attachments.length) || loading || attachmentOperation.current) return
+    if ((!message && !attachments.length && !references.length) || loading || attachmentOperation.current) return
+    if (references.length && message.startsWith('/')) {
+      showError(t('Send path references with a message, not a slash command.'))
+      return
+    }
     if (attachments.length && message.startsWith('/')) {
       showError('Send attachments with a message, not a slash command.')
       return
     }
     const payload = {
-      message,
+      message: [message, ...references.map(path => `@${path}`)].filter(Boolean).join('\n'),
       ...(attachments.length ? { attachmentIds: attachments.map((a) => a.id) } : {}),
     }
     setError('')
@@ -682,6 +687,7 @@ export function SessionView({
       try {
         await command(mode === 'followUp' ? 'follow_up' : 'steer', payload)
         setAttachments([])
+        setReferences([])
       } catch (e) {
         setDraft((old) => [message, old].filter(Boolean).join('\n\n'))
         showError(e)
@@ -697,6 +703,7 @@ export function SessionView({
     try {
       const result = await command('prompt', payload)
       setAttachments([])
+      setReferences([])
       if (result?.disposition === 'handled') {
         setActivity(tracker.current.handled())
         await sync()
@@ -887,6 +894,9 @@ export function SessionView({
               busy={busy}
               loading={loading || attaching || navigationPending}
               sending={sending}
+              references={references}
+              addReferences={paths => setReferences(old => [...new Set([...old, ...paths])])}
+              removeReference={path => setReferences(old => old.filter(p => p !== path))}
               attachments={attachments}
               attach={attach}
               removeAttachment={removeAttachment}
