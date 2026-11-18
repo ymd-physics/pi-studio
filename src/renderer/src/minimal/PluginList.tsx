@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useState } from 'react'
 import type { PluginInventory } from '../../../../packages/shared/plugins'
 import { PLUGIN_BASELINES } from '../../../../packages/shared/compatibility'
@@ -23,29 +24,30 @@ export function PluginList({ inventory, scope, error, onRetry }: {
   error?: string
   onRetry(): void
 }) {
+  const t = useUiText()
   const [copyStatus, setCopyStatus] = useState('')
-  if (error !== undefined) return <div role="alert"><p>Could not read plugins: {error}</p><button onClick={onRetry}>Retry</button></div>
-  if (!inventory) return <p role="status">Reading plugins…</p>
+  if (error !== undefined) return <div role="alert"><p>{t("Could not read plugins:") + ' '}{error}</p><button onClick={onRetry}>{t("Retry")}</button></div>
+  if (!inventory) return <p role="status">{t("Reading plugins…")}</p>
   return <>
-    <p className="pp-intro">{scope === 'global' ? 'Global Pi resources available across workspaces.' : 'Resources declared by this workspace.'}</p>
+    <p className="pp-intro">{scope === 'global' ? t('Global Pi resources available across workspaces.') : t('Resources declared by this workspace.')}</p>
     {inventory.warnings.map((warning, index) => <p className="pp-warning" role="alert" key={index}>{warning}</p>)}
-    {inventory[scope].length === 0 && <p>No {scope} plugins found.</p>}
+    {inventory[scope].length === 0 && <p>{t("No") + ' '}{scope}{' ' + t("plugins found.")}</p>}
     {inventory[scope].map((plugin) => {
       const command = plugin.state === 'missing' && plugin.adapted
         ? `pi install npm:${PLUGIN_BASELINES[plugin.adapted].package}${scope === 'local' ? ' -l' : ''}` : undefined
       return <article className="pp-plugin" key={plugin.id}>
-        <div className="pp-plugin-top"><strong>{plugin.name}</strong>{plugin.adapted && <span className="pp-badge">Studio adapted</span>}<span className={`pp-state${plugin.state === 'missing' && plugin.adapted ? ' pp-recommended' : ''}`}>{plugin.state === 'missing' && plugin.adapted ? 'Recommended' : plugin.state[0].toUpperCase() + plugin.state.slice(1)}</span></div>
+        <div className="pp-plugin-top"><strong>{plugin.name}</strong>{plugin.adapted && <span className="pp-badge">{t("Studio adapted")}</span>}<span className={`pp-state${plugin.state === 'missing' && plugin.adapted ? ' pp-recommended' : ''}`}>{plugin.state === 'missing' && plugin.adapted ? t('Recommended') : plugin.state[0].toUpperCase() + plugin.state.slice(1)}</span></div>
         <div className="pp-path">{plugin.source}</div>
-        {plugin.adapted && <p className="pp-plugin-version">Recommended: ≥ {PLUGIN_BASELINES[plugin.adapted].version}{plugin.state !== 'missing' && <span> · Installed: {plugin.version || 'Version unknown'}</span>}</p>}
+        {plugin.adapted && <p className="pp-plugin-version">{t("Recommended: ≥") + ' '}{PLUGIN_BASELINES[plugin.adapted].version}{plugin.state !== 'missing' && <span>{' ' + t("· Installed:") + ' '}{plugin.version || t('Version unknown')}</span>}</p>}
         {plugin.description && <p>{plugin.description}</p>}
-        {command && <details><summary>Installation instructions</summary><div className="pp-instruction"><code>{command}</code><button onClick={async () => {
+        {command && <details><summary>{t("Installation instructions")}</summary><div className="pp-instruction"><code>{command}</code><button onClick={async () => {
           try { await window.desktop.copyText(command); setCopyStatus('Command copied.') }
           catch { setCopyStatus('Could not copy command. Select and copy the text manually.') }
-        }}>Copy command</button><p>Run in terminal Pi{scope === 'local' ? ' from this workspace' : ''}, then reload the session. Pi Studio does not run this command.</p></div></details>}
+        }}>{t("Copy command")}</button><p>{t("Run in terminal Pi")}{scope === 'local' ? t(' from this workspace') : ''}{t(", then reload the session. Pi Studio does not run this command.")}</p></div></details>}
       </article>
     })}
     <p role="status">{copyStatus}</p>
-    <p className="pp-footnote">Read-only inventory. Installed or configured does not mean enabled or loaded in a session. Manage plugins with native Pi. Studio-adapted plugins are optional, not bundled. Recommended versions are known adapter baselines, not a compatibility guarantee. Older versions may have compatibility issues.</p>
-    <p className="pp-path">Agent directory: {inventory.agentDir}</p>
+    <p className="pp-footnote">{t("Read-only inventory. Installed or configured does not mean enabled or loaded in a session. Manage plugins with native Pi. Studio-adapted plugins are optional, not bundled. Recommended versions are known adapter baselines, not a compatibility guarantee. Older versions may have compatibility issues.")}</p>
+    <p className="pp-path">{t("Agent directory:") + ' '}{inventory.agentDir}</p>
   </>
 }

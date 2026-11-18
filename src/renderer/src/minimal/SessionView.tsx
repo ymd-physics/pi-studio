@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Files as FilesIcon, PanelLeft, ChevronRight, X, MessageCircleMore } from 'lucide-react'
 import type { PiRecord, Preferences, Snapshot } from '../../../../packages/shared/desktop'
@@ -52,6 +53,7 @@ export function SessionView({
   changed: (snapshot: Snapshot) => void
   attention: (handle: string, pendingRequests: number) => void
 }) {
+  const t = useUiText()
   const handle = initial.handle
   const markdownOrigin = useMemo(() => ({ handle }), [handle])
   const visibleRef = useRef(visible)
@@ -750,7 +752,7 @@ export function SessionView({
         'button:not(:disabled),input,textarea,select,a[href],[tabindex="0"]',
       ),
     ]
-    ;(modal.querySelector<HTMLElement>('[aria-label="Dismiss request"]') || focusable()[0])?.focus()
+    ;(modal.querySelector<HTMLElement>('[data-dismiss-request]') || focusable()[0])?.focus()
     const trap = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -783,14 +785,14 @@ export function SessionView({
   const title =
     session.state.sessionName ||
     messageText(session.messages.find((m) => m.role === 'user') || { role: 'user' }).slice(0, 65) ||
-    'New conversation'
+    t('New conversation')
   return (
     <MarkdownOrigin.Provider value={markdownOrigin}><section ref={viewRoot} className="session-view" hidden={!visible} data-session-handle={handle}>
       <header className="topbar">
         <button
           className="icon-button"
-          aria-label="Toggle sidebar"
-          title="Toggle sidebar"
+          aria-label={t("Toggle sidebar")}
+          title={t("Toggle sidebar")}
           onClick={toggleSidebar}
         >
           <PanelLeft size={18} />
@@ -803,8 +805,8 @@ export function SessionView({
         <div className="header-actions">
           <button
             className={`icon-button ${filesOpen ? 'active' : ''}`}
-            aria-label="Toggle files"
-            title={filesOpen ? 'Close files' : 'Open files'}
+            aria-label={t("Toggle files")}
+            title={filesOpen ? t('Close files') : t('Open files')}
             onClick={toggleFiles}
           >
             <FilesIcon size={17} />
@@ -815,7 +817,7 @@ export function SessionView({
         {loading ? (
           <div className="empty-state">
             <span className="pi-hero">π</span>
-            <p>Updating your conversation…</p>
+            <p>{t("Updating your conversation…")}</p>
           </div>
         ) : displayedMessages.length ? (
           <Conversation
@@ -833,46 +835,41 @@ export function SessionView({
         ) : (
           <div className="empty-state">
             <span className="pi-hero">π</span>
-            <h1>A little space to think.</h1>
-            <p>Explore an idea, work through a problem, or build something.</p>
+            <h1>{t("A little space to think.")}</h1>
+            <p>{t("Explore an idea, work through a problem, or build something.")}</p>
             {activity.compaction ? (
               <CompactionNotice value={activity.compaction} modelProvider={session.state.model?.provider} />
             ) : (
-              busy && <p role="status">Pi is working…</p>
+              busy && <p role="status">{t("Pi is working…")}</p>
             )}
           </div>
         )}
         <footer className="composer-dock">
           {reading && (
-            <section className="permission-pending" aria-label="Pending permission">
+            <section className="permission-pending" aria-label={t("Pending permission")}>
               <span className="permission-pending-icon">
                 <MessageCircleMore size={18} />
               </span>
               <div>
-                <strong>Response still pending</strong>
+                <strong>{t("Response still pending")}</strong>
                 <span title={`${workspaceName} / ${title}`}>
-                  {workspaceName} / {title} · Nothing submitted
-                </span>
+                  {workspaceName} / {title}{t("· Nothing submitted")}</span>
               </div>
-              <button type="button" className="primary" onClick={() => setReading(false)}>
-                Return to review
-              </button>
+              <button type="button" className="primary" onClick={() => setReading(false)}>{t("Return to review")}</button>
             </section>
           )}
           <div className="composer-content" hidden={reading}>
             {!!(queued.steering.length + queued.followUp.length) && (
-              <div className="pending-messages" aria-label="Pending messages">
+              <div className="pending-messages" aria-label={t("Pending messages")}>
                 <header>
-                  <span>Waiting to send</span>
-                  <button disabled={sending} onClick={() => void recall()}>
-                    Recall all
-                  </button>
+                  <span>{t("Waiting to send")}</span>
+                  <button disabled={sending} onClick={() => void recall()}>{t("Recall all")}</button>
                 </header>
                 {(['steering', 'followUp'] as const).map((kind) =>
                   queued[kind].map((text, index) => (
                     <div key={`${kind}-${index}`}>
-                      <small>{kind === 'steering' ? 'Steer' : 'Follow-up'}</small>
-                      <span>{text || 'Image attachment'}</span>
+                      <small>{kind === 'steering' ? t('Steer') : t('Follow-up')}</small>
+                      <span>{text || t('Image attachment')}</span>
                     </div>
                   )),
                 )}
@@ -919,27 +916,25 @@ export function SessionView({
             className="dialog"
             role="dialog"
             aria-modal="true"
-            aria-label="Rename session"
+            aria-label={t("Rename session")}
             onSubmit={(e) => {
               e.preventDefault()
               void run('set_session_name', { name: rename })
               setRename(undefined)
             }}
           >
-            <h2>Rename conversation</h2>
+            <h2>{t("Rename conversation")}</h2>
             <input
               autoFocus
-              aria-label="Session name"
+              aria-label={t("Session name")}
               maxLength={200}
               required
               value={rename}
               onChange={(e) => setRename(e.target.value)}
             />
             <div className="dialog-actions">
-              <button type="button" onClick={() => setRename(undefined)}>
-                Cancel
-              </button>
-              <button className="primary">Save</button>
+              <button type="button" onClick={() => setRename(undefined)}>{t("Cancel")}</button>
+              <button className="primary">{t("Save")}</button>
             </div>
           </form>
         </div>
@@ -950,13 +945,13 @@ export function SessionView({
             className="dialog branch-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label={branches ? 'Branch conversation' : 'Session tree'}
+            aria-label={branches ? t('Branch conversation') : t('Session tree')}
           >
             <div className="panel-heading">
-              <h2>{branches ? 'Branch from a message' : 'Native session tree'}</h2>
+              <h2>{branches ? t('Branch from a message') : t('Native session tree')}</h2>
               <button
                 className="icon-button"
-                aria-label="Close branches"
+                aria-label={t("Close branches")}
                 onClick={() => {
                   setBranches(undefined)
                   setTree(undefined)
@@ -967,8 +962,8 @@ export function SessionView({
             </div>
             <p className="muted">
               {branches
-                ? 'Creates a native Pi branch. Your existing history remains intact.'
-                : 'Read-only tree. RPC supports forking user messages, but not arbitrary in-file tree navigation. Use terminal /tree for that.'}
+                ? t('Creates a native Pi branch. Your existing history remains intact.')
+                : t('Read-only tree. RPC supports forking user messages, but not arbitrary in-file tree navigation. Use terminal /tree for that.')}
             </p>
             {branches?.map((branch) => {
               const branchText = splitAttachmentBlock(branch.text)?.text ?? branch.text
@@ -987,7 +982,7 @@ export function SessionView({
                 </button>
               )
             })}
-            {branches?.length === 0 && <p>No user messages available to branch from.</p>}
+            {branches?.length === 0 && <p>{t("No user messages available to branch from.")}</p>}
             {tree && <Tree nodes={tree} />}
           </div>
         </div>

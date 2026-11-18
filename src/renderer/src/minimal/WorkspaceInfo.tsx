@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { Workspace } from '../../../../packages/shared/desktop'
@@ -18,6 +19,7 @@ export function WorkspaceInfo(props: WorkspaceInfoProps) {
 }
 
 function WorkspaceInfoContent({ workspace, onClose, onRename, loadPlugins }: WorkspaceInfoProps) {
+  const t = useUiText()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(workspace.name)
   const [saving, setSaving] = useState(false)
@@ -32,21 +34,21 @@ function WorkspaceInfoContent({ workspace, onClose, onRename, loadPlugins }: Wor
   }
   const [scope, setScope] = useState<'local' | 'global'>('local')
   const { inventory, error, retry } = usePluginInventory(loadPlugins)
-  return <PreferencesDialog label="Workspace information" onClose={onClose} workspace>
+  return <PreferencesDialog label={t("Workspace information")} onClose={onClose} workspace>
     <section className="pp-content">
-      <header className="pp-heading"><h2>Workspace information<small>{workspace.name}</small></h2><button autoFocus aria-label="Close workspace information" onClick={onClose}><X size={17} /></button></header>
+      <header className="pp-heading"><h2>{t("Workspace information")}<small>{workspace.name}</small></h2><button autoFocus aria-label={t("Close workspace information")} onClick={onClose}><X size={17} /></button></header>
       <div className="pp-body">
         <div className="pp-workspace-identity">
           {editing ? <form onSubmit={(event) => void saveName(event)}>
-            <label htmlFor="workspace-display-name">Display name</label>
+            <label htmlFor="workspace-display-name">{t("Display name")}</label>
             <input id="workspace-display-name" autoFocus value={name} disabled={saving} maxLength={160} onChange={(event) => setName(event.target.value)} />
-            <p className="pp-footnote">Only the display name changes. Your folder, sessions and terminal paths stay the same.</p>
+            <p className="pp-footnote">{t("Only the display name changes. Your folder, sessions and terminal paths stay the same.")}</p>
             {renameError && <p role="alert" className="error-text">{renameError}</p>}
-            <div className="pp-rename-actions"><button type="button" disabled={saving} onClick={() => setEditing(false)}>Cancel</button><button type="submit" disabled={saving || !name.trim()}>{saving ? 'Saving…' : 'Save'}</button></div>
-          </form> : <button className="pp-rename-workspace" onClick={() => { setName(workspace.name); setRenameError(''); setEditing(true) }}>Rename workspace…</button>}
+            <div className="pp-rename-actions"><button type="button" disabled={saving} onClick={() => setEditing(false)}>{t("Cancel")}</button><button type="submit" disabled={saving || !name.trim()}>{saving ? t('Saving…') : t('Save')}</button></div>
+          </form> : <button className="pp-rename-workspace" onClick={() => { setName(workspace.name); setRenameError(''); setEditing(true) }}>{t("Rename workspace…")}</button>}
           <p className="pp-path">{workspace.path}</p>
         </div>
-        <div className="pp-scopes" aria-label="Plugin scope">{(['local', 'global'] as const).map((value) => <button key={value} aria-pressed={scope === value} onClick={() => setScope(value)}>{value === 'local' ? 'Local' : 'Global'}{inventory && <small> {inventory[value].length}</small>}</button>)}</div>
+        <div className="pp-scopes" aria-label={t("Plugin scope")}>{(['local', 'global'] as const).map((value) => <button key={value} aria-pressed={scope === value} onClick={() => setScope(value)}>{value === 'local' ? t('Local') : t('Global')}{inventory && <small> {inventory[value].length}</small>}</button>)}</div>
         <PluginList key={scope} inventory={inventory} error={error} scope={scope} onRetry={retry} />
       </div>
     </section>

@@ -70,6 +70,7 @@ export interface Workspace {
   name: string
 }
 export interface Preferences {
+  language?: import('./language').Language
   workspaces: Workspace[]
   activeWorkspace?: string
   activeSession?: string
@@ -116,7 +117,7 @@ export interface FileEntry {
 export type PiRecord = { type: string; [key: string]: any }
 export interface DesktopAPI {
   boot(): Promise<{ preferences: Preferences; runtime: string }>
-  preferences(patch: Partial<Pick<Preferences, 'theme' | 'font' | 'enterToSend' | 'terminalFontSize'>>): Promise<Preferences>
+  preferences(patch: Partial<Pick<Preferences, 'theme' | 'font' | 'enterToSend' | 'language' | 'terminalFontSize'>>): Promise<Preferences>
   terminals(): Promise<TerminalInfo[]>
   createTerminal(workspace: string): Promise<TerminalInfo>
   renameTerminal(id: string, name: string): Promise<void>

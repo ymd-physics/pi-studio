@@ -1,3 +1,5 @@
+import { LanguageContext } from './language'
+import { uiText } from '../../../../packages/shared/language'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Plus,
@@ -104,6 +106,9 @@ export function App() {
   const menuFocus = useRef<HTMLElement | null>(null)
   const terminalRevision = useRef(0)
   const preferenceRevision = useRef(0)
+  const language = preferences?.language || 'en'
+  const t = uiText(language)
+  useEffect(() => { document.documentElement.lang = language }, [language])
   const prefs = useRef(preferences)
   prefs.current = preferences
   const navigating = useRef(false)
@@ -163,7 +168,7 @@ export function App() {
   const navigate = useCallback(
     async (workspace: string, path?: string): Promise<Snapshot | undefined> => {
       if (navigating.current) return
-      if (dirty && !window.confirm('Discard unsaved file changes?')) return
+      if (dirty && !window.confirm(t('Discard unsaved file changes?'))) return
       navigating.current = true
       setOpeningKind('conversation')
       setLoading(true)
@@ -187,14 +192,14 @@ export function App() {
         setLoading(false)
       }
     },
-    [dirty, refreshSessions, showError],
+    [dirty, refreshSessions, showError, t],
   )
   const newConversation = useCallback(() => {
     if (!workspaceForNew || loading) return
     void navigate(workspaceForNew)
   }, [workspaceForNew, loading, navigate])
   const selectTerminal = (terminal: TerminalInfo) => {
-    if (navigating.current || (dirty && !window.confirm('Discard unsaved file changes?'))) return
+    if (navigating.current || (dirty && !window.confirm(t('Discard unsaved file changes?')))) return
     setSelected(`terminal:${terminal.id}`)
     setFiles(false)
     setDirty(false)
@@ -203,7 +208,7 @@ export function App() {
     setTerminalContext(undefined)
   }
   const createTerminal = async (workspace: string) => {
-    if (navigating.current || (dirty && !window.confirm('Discard unsaved file changes?'))) return
+    if (navigating.current || (dirty && !window.confirm(t('Discard unsaved file changes?')))) return
     navigating.current = true
     setOpeningKind('terminal')
     setLoading(true)
@@ -372,7 +377,7 @@ export function App() {
     const live = running.find((r) => r.path === item.path && r.workspace === workspace)
     if (['close', 'delete'].includes(name)) {
       if (name === 'close' && live?.status === 'working') return
-      if (live?.handle === selected && dirty && !window.confirm('Discard unsaved file changes?')) return
+      if (live?.handle === selected && dirty && !window.confirm(t('Discard unsaved file changes?'))) return
       try {
         if (name === 'close') {
           if (!live) return
@@ -391,7 +396,7 @@ export function App() {
     if (next) setAction({ handle: next.handle, name, sequence: Date.now() })
   }
   const toggleFiles = () => {
-    if (!files || !dirty || window.confirm('Discard unsaved file changes?')) {
+    if (!files || !dirty || window.confirm(t('Discard unsaved file changes?'))) {
       setFiles(!files)
       setDirty(false)
     }
@@ -400,7 +405,7 @@ export function App() {
     context && running.find((r) => r.workspace === context.workspace && r.path === context.item.path)
   const contextBusy = currentLive?.status === 'working'
   return (
-    <div
+    <LanguageContext.Provider value={language}><div
       className={`app ${sidebar ? '' : 'sidebar-hidden'}`}
       style={{ gridTemplateColumns: sidebar ? `${widths.left}px minmax(0, 1fr)` : 'minmax(0, 1fr)' }}
       onClick={(e) => {
@@ -417,24 +422,23 @@ export function App() {
             <span className="pi-mark">π</span>
             <div className="brand-identity">
               <div className="brand-name">Pi Studio</div>
-              <span className="brand-version" aria-label="Pi Studio version">
-                v{appVersion}
+              <span className="brand-version" aria-label={t("Pi Studio version")}>{t("v")}{appVersion}
               </span>
             </div>
           </div>
           <div className="sidebar-label">
-            <h2>Workspaces</h2>
+            <h2>{t("Workspaces")}</h2>
             <button
               className="icon-button"
-              aria-label="Add workspace"
-              title="Add workspace"
+              aria-label={t("Add workspace")}
+              title={t("Add workspace")}
               disabled={!preferences || loading}
               onClick={() => void addWorkspace()}
             >
               <FolderPlus size={16} />
             </button>
           </div>
-          <nav aria-label="Workspaces and sessions" className="workspace-list">
+          <nav aria-label={t("Workspaces and sessions")} className="workspace-list">
             {preferences?.workspaces.map((workspace) => {
               const waitingSessions = running.filter(
                 (live) => live.workspace === workspace.path && (waiting[live.handle] || 0) > 0,
@@ -492,7 +496,7 @@ export function App() {
                     <button
                       className="icon-button"
                       aria-label={`Workspace information for ${workspace.name}`}
-                      title="Workspace information"
+                      title={t("Workspace information")}
                       onClick={() => setWorkspaceInfo(workspace)}
                     >
                       <Info size={14} />
@@ -500,7 +504,7 @@ export function App() {
                     <button
                       className="icon-button"
                       disabled={loading}
-                      title="New conversation or terminal"
+                      title={t("New conversation or terminal")}
                       aria-label={`New session in ${workspace.name}`}
                       aria-haspopup="menu"
                       aria-expanded={creationMenu?.workspace === workspace.path}
@@ -526,7 +530,7 @@ export function App() {
                         if (
                           dirty &&
                           session?.workspace === workspace.path &&
-                          !window.confirm('Discard unsaved file changes?')
+                          !window.confirm(t('Discard unsaved file changes?'))
                         )
                           return
                         try {
@@ -551,7 +555,7 @@ export function App() {
                       const live = running.find((r) => r.path === item.path && r.workspace === workspace.path)
                       const pendingRequests = live ? waiting[live.handle] || 0 : 0
                       const status = pendingRequests > 0 ? 'waiting' : live?.status || 'inactive'
-                      const name = item.name || item.firstMessage || 'Untitled conversation'
+                      const name = item.name || item.firstMessage || t('Untitled conversation')
                       return (
                         <button
                           className={`session-link ${session?.state.sessionFile === item.path ? 'selected' : ''}`}
@@ -585,7 +589,7 @@ export function App() {
                         >
                           <span
                             className={`session-status is-${status}`}
-                            aria-label={pendingRequests ? 'Waiting for your response' : status}
+                            aria-label={pendingRequests ? t('Waiting for your response') : status}
                           >
                             {pendingRequests ? (
                               <MessageCircleMore size={14} aria-hidden="true" />
@@ -618,7 +622,7 @@ export function App() {
                     </button>
                   ))}
                   {!collapsed.includes(workspace.path) && !sessions[workspace.path]?.length && !terminalSessions.some((terminal) => terminal.workspace === workspace.path) && (
-                    <span className="no-sessions">No sessions yet</span>
+                    <span className="no-sessions">{t("No sessions yet")}</span>
                   )}
                 </section>
               )
@@ -626,11 +630,9 @@ export function App() {
           </nav>
           <div className="sidebar-bottom">
             <button onClick={() => setSettings(true)}>
-              <Settings2 size={16} /> Preferences
-            </button>
+              <Settings2 size={16} />{t("Preferences")}</button>
             <span title={runtime}>
-              <span className="connection-dot" /> Your local Pi
-            </span>
+              <span className="connection-dot" />{t("Your local Pi")}</span>
           </div>
           <ResizeEdge
             side="left"
@@ -645,7 +647,7 @@ export function App() {
         {error && !session && (
           <div role="alert" className="banner error">
             <span>{error}</span>
-            <button className="icon-button" aria-label="Dismiss error" onClick={() => setError('')}>
+            <button className="icon-button" aria-label={t("Dismiss error")} onClick={() => setError('')}>
               <X size={15} />
             </button>
           </div>
@@ -653,14 +655,14 @@ export function App() {
         {notice && !session && (
           <div role="status" className="banner">
             <span>{notice}</span>
-            <button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice('')}>
+            <button className="icon-button" aria-label={t("Dismiss notice")} onClick={() => setNotice('')}>
               <X size={15} />
             </button>
           </div>
         )}
         {loading && (
           <div className="opening-indicator" role="status">
-            <LoaderCircle size={13} className="spin" /> Opening {openingKind}…
+            <LoaderCircle size={13} className="spin" />{' ' + t("Opening") + ' '}{openingKind}…
           </div>
         )}
         <div className="main-body">
@@ -697,8 +699,8 @@ export function App() {
                 <header className="topbar">
                   <button
                     className="icon-button"
-                    aria-label="Toggle sidebar"
-                    title="Toggle sidebar"
+                    aria-label={t("Toggle sidebar")}
+                    title={t("Toggle sidebar")}
                     onClick={() => setSidebar(!sidebar)}
                   >
                     <PanelLeft size={18} />
@@ -707,24 +709,22 @@ export function App() {
                 </header>
                 <div className="empty-state">
                   <span className="pi-hero">π</span>
-                  <h1>A little space to think.</h1>
-                  <p>Your conversations, tools, and ideas. One quiet workspace.</p>
+                  <h1>{t("A little space to think.")}</h1>
+                  <p>{t("Your conversations, tools, and ideas. One quiet workspace.")}</p>
                   {preferences?.workspaces.length ? (
                     <button
                       className="subtle-button"
                       disabled={!workspaceForNew}
                       onClick={newConversation}
                     >
-                      <Plus size={16} /> New conversation
-                    </button>
+                      <Plus size={16} />{t("New conversation")}</button>
                   ) : (
                     <button
                       className="subtle-button"
                       disabled={!preferences}
                       onClick={() => void addWorkspace()}
                     >
-                      <FolderPlus size={16} /> Add a workspace
-                    </button>
+                      <FolderPlus size={16} />{t("Add a workspace")}</button>
                   )}
                 </div>
               </>
@@ -754,12 +754,12 @@ export function App() {
         <div
           className="menu session-context-menu"
           role="menu"
-          aria-label="Session actions"
+          aria-label={t("Session actions")}
           style={{ left: Math.max(4, context.x), top: Math.max(4, context.y) }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="context-menu-title">
-            {context.item.name || context.item.firstMessage || 'Untitled conversation'}
+            {context.item.name || context.item.firstMessage || t('Untitled conversation')}
           </div>
           {(
             [
@@ -785,24 +785,24 @@ export function App() {
               onClick={() => void contextAction(name)}
             >
               <Icon size={14} />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
       )}
       {creationMenu && <div id="workspace-creation-menu" className="menu session-context-menu workspace-creation-menu" role="menu"
-        aria-label="New workspace session" style={{ left: creationMenu.x, top: creationMenu.y }}
+        aria-label={t("New workspace session")} style={{ left: creationMenu.x, top: creationMenu.y }}
         onPointerDown={(event) => event.stopPropagation()} onKeyDown={menuNavigation}>
-        <button role="menuitem" onClick={() => void navigate(creationMenu.workspace)}><MessageCircleMore size={14} />New conversation</button>
-        <button role="menuitem" onClick={() => void createTerminal(creationMenu.workspace)}><Terminal size={14} />New terminal</button>
+        <button role="menuitem" onClick={() => void navigate(creationMenu.workspace)}><MessageCircleMore size={14} />{t("New conversation")}</button>
+        <button role="menuitem" onClick={() => void createTerminal(creationMenu.workspace)}><Terminal size={14} />{t("New terminal")}</button>
       </div>}
       {terminalContext && <div id="terminal-actions-menu" className="menu session-context-menu terminal-actions-menu" role="menu"
-        aria-label="Terminal actions" style={{ left: Math.max(8, terminalContext.x), top: Math.max(8, terminalContext.y) }}
+        aria-label={t("Terminal actions")} style={{ left: Math.max(8, terminalContext.x), top: Math.max(8, terminalContext.y) }}
         onPointerDown={(event) => event.stopPropagation()} onKeyDown={menuNavigation}>
-        <button role="menuitem" onClick={() => { setTerminalRename(terminalSessions.find((terminal) => terminal.id === terminalContext.id)); setTerminalContext(undefined) }}><Pencil size={14} />Rename…</button>
-        <button role="menuitem" onClick={() => { setTerminalAction({ id: terminalContext.id, name: 'clear', sequence: Date.now() }); setTerminalContext(undefined) }}><ListTree size={14} />Clear output</button>
+        <button role="menuitem" onClick={() => { setTerminalRename(terminalSessions.find((terminal) => terminal.id === terminalContext.id)); setTerminalContext(undefined) }}><Pencil size={14} />{t("Rename…")}</button>
+        <button role="menuitem" onClick={() => { setTerminalAction({ id: terminalContext.id, name: 'clear', sequence: Date.now() }); setTerminalContext(undefined) }}><ListTree size={14} />{t("Clear output")}</button>
         <div role="separator" className="menu-separator" />
-        <button role="menuitem" className="error-text" onClick={() => void closeTerminal(terminalContext.id)}><X size={14} />Close terminal…</button>
+        <button role="menuitem" className="error-text" onClick={() => void closeTerminal(terminalContext.id)}><X size={14} />{t("Close terminal…")}</button>
       </div>}
       {terminalRename && <TerminalNameDialog key={terminalRename.id} name={terminalRename.name} onClose={() => setTerminalRename(undefined)}
         onSave={async (name) => { await window.desktop.renameTerminal(terminalRename.id, name); await refreshTerminals() }} />}
@@ -814,6 +814,6 @@ export function App() {
         onClose={() => setWorkspaceInfo(undefined)} loadPlugins={loadWorkspacePlugins}
         onRename={async (name) => { const next = await window.desktop.renameWorkspace(workspaceInfo.path, name); setPreferences(next); prefs.current = next }}
       />}
-    </div>
+    </div></LanguageContext.Provider>
   )
 }

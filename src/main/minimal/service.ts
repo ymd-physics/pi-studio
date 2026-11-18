@@ -57,7 +57,7 @@ type LiveSession = {
 }
 
 export class DesktopService {
-  preferences: Preferences = { workspaces: [], theme: 'system', font: 'default', enterToSend: true, terminalFontSize: 'auto' }
+  preferences: Preferences = { language: 'en', workspaces: [], theme: 'system', font: 'default', enterToSend: true, terminalFontSize: 'auto' }
   private installation!: PiInstallation
   private sdk: any
   private current?: Snapshot
@@ -99,6 +99,7 @@ export class DesktopService {
       /* first launch */
     }
     if (!['default', 'serif'].includes(this.preferences.font!)) this.preferences.font = 'default'
+    if (this.preferences.language !== 'zh-CN') this.preferences.language = 'en'
     const terminalSize = this.preferences.terminalFontSize
     if (terminalSize !== 'auto' && (!Number.isInteger(terminalSize) || typeof terminalSize !== 'number' || terminalSize < 10 || terminalSize > 22)) this.preferences.terminalFontSize = 'auto'
     this.installation = await discoverPi()
@@ -141,6 +142,7 @@ export class DesktopService {
         if (size !== 'auto' && (typeof size !== 'number' || !Number.isInteger(size) || size < 10 || size > 22)) throw new Error('Terminal font size must be automatic or an integer from 10 to 22')
         this.preferences.terminalFontSize = size
       }
+      if (patch.language === 'en' || patch.language === 'zh-CN') this.preferences.language = patch.language
       if (['system', 'light', 'dark'].includes(patch.theme!)) this.preferences.theme = patch.theme!
       if (['default', 'serif'].includes(patch.font!)) this.preferences.font = patch.font!
       if (typeof patch.enterToSend === 'boolean') this.preferences.enterToSend = patch.enterToSend

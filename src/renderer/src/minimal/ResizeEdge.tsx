@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useRef, useState } from 'react'
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
@@ -58,6 +59,7 @@ export function ResizeEdge({
   max: number
   change: (width: number) => void
 }) {
+  const t = useUiText()
   const drag = useRef<{ x: number; value: number }>()
   const [dragging, setDragging] = useState(false)
   useEffect(() => {
@@ -69,7 +71,7 @@ export function ResizeEdge({
     <div
       className={`resize-edge resize-${side}`}
       role="separator"
-      aria-label={side === 'left' ? 'Resize workspace sidebar' : 'Resize file panel'}
+      aria-label={side === 'left' ? t('Resize workspace sidebar') : t('Resize file panel')}
       aria-orientation="vertical"
       aria-valuemin={min}
       aria-valuemax={max}

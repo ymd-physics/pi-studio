@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, CircleAlert, Clock, LoaderCircle, MessageSquareWarning, Pause, Square, Terminal } from 'lucide-react'
 import type { SubagentCard, SubagentStatus } from '../../../../packages/shared/subagents'
@@ -13,6 +14,7 @@ const terminal = (agent: SubagentCard) => ['complete', 'failed', 'stopped', 'pau
 const attention = (agent: SubagentCard) => ['waiting', 'failed', 'paused', 'unknown'].includes(agent.state)
 
 export function SubagentFocusCard({ status, active, requestForAgent, onRequest }: { status: SubagentStatus | undefined; active: boolean; requestForAgent?: (agent: SubagentCard) => string | undefined; onRequest?: (id: string) => void }) {
+  const t = useUiText()
   const [known, setKnown] = useState<SubagentStatus>()
   const [observedEnds, setObservedEnds] = useState<Map<string, { state: SubagentCard['state']; time: number }>>(() => new Map())
   const [selectedId, setSelectedId] = useState<string>()
@@ -66,34 +68,34 @@ export function SubagentFocusCard({ status, active, requestForAgent, onRequest }
 
   const requestId = !status?.error ? requestForAgent?.(agent) : undefined
   return (
-    <section className="subagent-focus" aria-label="Subagent activity">
+    <section className="subagent-focus" aria-label={t("Subagent activity")}>
       <div className="subagent-focus-header">
-        <strong>Subagents</strong>
-        <span className="subagent-focus-counts">{agents.filter(item => item.state === 'running').length} running · {agents.filter(item => item.state === 'queued').length} queued · {agents.length} total{snapshot?.omitted ? ` · ${snapshot.omitted} more not reported` : ''}</span>
-        {attentionAgents.length > 0 && <button className="subagent-focus-attention" onClick={selectAttention}>{attentionAgents.length} needs attention</button>}
+        <strong>{t("Subagents")}</strong>
+        <span className="subagent-focus-counts">{agents.filter(item => item.state === 'running').length}{' ' + t("running ·") + ' '}{agents.filter(item => item.state === 'queued').length}{' ' + t("queued ·") + ' '}{agents.length}{' ' + t("total")}{snapshot?.omitted ? ` · ${snapshot.omitted} more not reported` : ''}</span>
+        {attentionAgents.length > 0 && <button className="subagent-focus-attention" onClick={selectAttention}>{attentionAgents.length}{' ' + t("needs attention")}</button>}
         <div className="subagent-focus-pager">
-          <button aria-label="Previous agent" disabled={index === 0} onClick={() => setSelectedId(agents[index - 1].id)}><ChevronLeft /></button>
+          <button aria-label={t("Previous agent")} disabled={index === 0} onClick={() => setSelectedId(agents[index - 1].id)}><ChevronLeft /></button>
           <span>{index + 1} / {agents.length}</span>
-          <button aria-label="Next agent" disabled={index === agents.length - 1} onClick={() => setSelectedId(agents[index + 1].id)}><ChevronRight /></button>
+          <button aria-label={t("Next agent")} disabled={index === agents.length - 1} onClick={() => setSelectedId(agents[index + 1].id)}><ChevronRight /></button>
         </div>
       </div>
-      {status?.error && <div className="subagent-focus-stale" role="status">Stale subagent status — {status.error}</div>}
+      {status?.error && <div className="subagent-focus-stale" role="status">{t("Stale subagent status —") + ' '}{status.error}</div>}
       <article className="subagent-focus-card" data-state={agent.state}>
         <div className="subagent-focus-top">
           <span className="subagent-focus-icon"><Icon className={agent.state === 'running' ? 'subagent-focus-spin' : undefined} aria-hidden="true" /></span>
-          <strong className="subagent-focus-name" title={agent.name}>{agent.name || 'Name unavailable'}</strong>
+          <strong className="subagent-focus-name" title={agent.name}>{agent.name || t('Name unavailable')}</strong>
         </div>
         <div className="subagent-focus-status">
-          <span className="subagent-focus-state">{labels[agent.state]}</span>
-          {requestId && onRequest && <button className="subagent-focus-request" onClick={() => onRequest(requestId)}>View recorded request ↑</button>}
+          <span className="subagent-focus-state">{t(labels[agent.state])}</span>
+          {requestId && onRequest && <button className="subagent-focus-request" onClick={() => onRequest(requestId)}>{t("View recorded request ↑")}</button>}
           <span className="subagent-focus-elapsed" data-unavailable={seconds === undefined}>{elapsed}</span>
         </div>
-        <p className="subagent-focus-task" title={agent.task}>{agent.task || 'Task unavailable'}</p>
+        <p className="subagent-focus-task" title={agent.task}>{agent.task || t('Task unavailable')}</p>
         <div className="subagent-focus-meta">
-          <span className="subagent-focus-model" title={agent.model}>{agent.model || 'Model unavailable'}</span>
-          <span className="subagent-focus-thinking" title="Thinking level">{agent.thinking || 'Thinking unavailable'}</span>
+          <span className="subagent-focus-model" title={agent.model}>{agent.model || t('Model unavailable')}</span>
+          <span className="subagent-focus-thinking" title={t("Thinking level")}>{agent.thinking || t('Thinking unavailable')}</span>
         </div>
-        <span className="subagent-focus-activity" title={agent.activity}><Terminal aria-hidden="true" /><span>{agent.activity || 'Activity unavailable'}</span></span>
+        <span className="subagent-focus-activity" title={agent.activity}><Terminal aria-hidden="true" /><span>{agent.activity || t('Activity unavailable')}</span></span>
       </article>
     </section>
   )

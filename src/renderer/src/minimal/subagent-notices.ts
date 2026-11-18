@@ -62,7 +62,7 @@ const defaults: Record<string, [string, string, SubagentNoticeView['tone']]> = {
   subagent_watchdog_warning: ['Watchdog warning', 'Warning', 'attention'],
   subagent_watchdog_clarification: ['Watchdog needs clarification', 'Clarification', 'attention'],
 }
-export function subagentNotice(message: Message): SubagentNoticeView | undefined {
+export function subagentNotice(message: Message, t: (text: string) => string = text => text): SubagentNoticeView | undefined {
   if (message.role !== 'custom' || message.display === false || !message.customType || !Object.hasOwn(defaults, message.customType)) return
   const [title, badge, tone] = defaults[message.customType]
   const view: SubagentNoticeView = { title, badge, tone, body: noticeText(message), nativeOnly: true,
@@ -71,7 +71,7 @@ export function subagentNotice(message: Message): SubagentNoticeView | undefined
   const request = supervisorRequest(message)
   if (request) {
     view.request = request; view.body = request.body; view.nativeOnly = false
-    view.title = `${request.agent} ${request.reason === 'interview_request' ? 'requests structured answers' : request.reason === 'progress_update' ? 'sent a progress update' : 'needs a decision'}`
+    view.title = `${request.agent} ${t(request.reason === 'interview_request' ? 'requests structured answers' : request.reason === 'progress_update' ? 'sent a progress update' : 'needs a decision')}`
     view.badge = request.reason === 'interview_request' ? 'Interview requested' : request.reason === 'progress_update' ? 'Progress update' : 'Decision requested'
     view.tone = request.reason === 'progress_update' ? 'info' : 'attention'
     view.footer = request.expectsReply ? 'Request to the parent agent · current resolution not inferred' : 'Informational update · no reply requested'
@@ -79,29 +79,29 @@ export function subagentNotice(message: Message): SubagentNoticeView | undefined
   } else if (['subagent-supervisor-unanswered', 'subagent-supervisor-blocked'].includes(message.customType)) {
     if (Array.isArray(d.requestIds) && d.requestIds.length > 0 && d.requestIds.length <= 64 && d.requestIds.every(identity)) {
       view.related = [...new Set(d.requestIds)]; view.nativeOnly = false
-      view.body = message.customType === 'subagent-supervisor-blocked' ? 'Reminder budget exhausted. No reply or approval was sent.' : 'The parent has not handled this supervisor wake. Inspect pending requests before replying within existing authority or asking for approval.'
-      view.footer = `${d.requestIds.length} recorded request${d.requestIds.length === 1 ? '' : 's'} · a reminder is not a decision`
+      view.body = t(message.customType === 'subagent-supervisor-blocked' ? 'Reminder budget exhausted. No reply or approval was sent.' : 'The parent has not handled this supervisor wake. Inspect pending requests before replying within existing authority or asking for approval.')
+      view.footer = `${d.requestIds.length} ${t(d.requestIds.length === 1 ? 'recorded request' : 'recorded requests')} · ${t('a reminder is not a decision')}`
     }
   } else if (message.customType === 'subagent-notify') {
     const runs = Array.isArray(d.runs) && d.runs.length <= 64 ? d.runs.map(record) : []
     if (runs.length > 0 && runs.length <= 64 && runs.every(run => identity(run.agent) && ['completed', 'failed', 'paused', 'stopped'].includes(text(run.status)))) {
       const failed = runs.filter(run => run.status === 'failed').length
       const interrupted = runs.some(run => run.status === 'paused' || run.status === 'stopped')
-      view.title = runs.length === 1 ? `${runs[0].agent} ${runs[0].status}` : `${runs.length} background runs finished`
-      view.badge = failed ? `${failed} failed` : interrupted ? 'Paused / stopped' : 'Completed'
+      view.title = runs.length === 1 ? `${runs[0].agent} ${t(String(runs[0].status))}` : `${runs.length} ${t('background runs finished')}`
+      view.badge = failed ? `${failed} ${t('failed')}` : interrupted ? 'Paused / stopped' : 'Completed'
       view.tone = failed ? 'error' : interrupted ? 'attention' : 'result'
       view.body = ''; view.nativeOnly = false
       view.fields = runs.map(run => ({ label: text(run.agent, 200), value: text(run.status, 40) }))
       view.footer = 'Result previews, artifact references and parent instructions in Native details'
     }
   } else if (message.customType === 'subagent_steering_notice' && ['failed', 'partial', 'recovered'].includes(text(d.state))) {
-    view.title = `Guidance delivery ${d.state}`; view.badge = text(d.state); view.tone = d.state === 'failed' ? 'error' : 'attention'
+    view.title = `${t('Guidance delivery')} ${t(text(d.state))}`; view.badge = text(d.state); view.tone = d.state === 'failed' ? 'error' : 'attention'
     view.body = text(d.message) || 'Inspect the run status before sending another correction.'; view.nativeOnly = false
     view.footer = 'Delivery state is not a task outcome'
   } else if (message.customType === 'subagent_control_notice') {
     const event = record(d.event)
     if (identity(event.agent) && event.type === 'needs_attention') {
-      view.title = `${event.agent} needs attention`; view.badge = 'Needs attention'
+      view.title = `${event.agent} ${t('needs attention')}`; view.badge = 'Needs attention'
       view.body = text(d.noticeText) || noticeText(message)
       view.footer = 'Activity notice · not necessarily a pending supervisor request'
       view.nativeOnly = false
@@ -115,6 +115,7 @@ export function subagentNotice(message: Message): SubagentNoticeView | undefined
     if (typeof d.state === 'string') view.fields.push({ label: 'Reported state', value: text(d.state, 100) })
     view.footer = 'Advisory evidence · not an instruction or permission approval'
   }
+  view.title = t(view.title); view.badge = t(view.badge); view.footer = t(view.footer)
   return view
 }
 

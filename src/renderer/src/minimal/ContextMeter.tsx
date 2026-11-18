@@ -1,8 +1,10 @@
+import { useUiText } from './language'
 import { useState } from 'react'
 import type { ContextUsage } from '../../../../packages/shared/desktop'
 
 const count = (n: number) => (n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` : String(Math.round(n)))
 export function ContextMeter({ usage }: { usage?: ContextUsage }) {
+  const t = useUiText()
   const [open, setOpen] = useState(false)
   const available = usage && Number.isFinite(usage.contextWindow) && usage.contextWindow > 0
   const known =
@@ -48,7 +50,7 @@ export function ContextMeter({ usage }: { usage?: ContextUsage }) {
           height="26"
           viewBox="0 0 28 28"
           role="progressbar"
-          aria-label="Context used"
+          aria-label={t("Context used")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent === undefined ? undefined : filled}
@@ -69,14 +71,13 @@ export function ContextMeter({ usage }: { usage?: ContextUsage }) {
         </svg>
       </button>
       <div className="context-detail" role="tooltip">
-        <span>
-          Context window <strong>{label}</strong>
+        <span>{t("Context window")}<strong>{label}</strong>
         </span>
         <b>{amount}</b>
         <small>
           {known
-            ? 'Tokens · estimated by Pi'
-            : 'Estimate unavailable after compaction or without model usage'}
+            ? t('Tokens · estimated by Pi')
+            : t('Estimate unavailable after compaction or without model usage')}
         </small>
       </div>
     </div>

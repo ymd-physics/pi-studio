@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useState, type RefObject } from 'react'
 import { ArrowUp, Square, Paperclip, X, FileText } from 'lucide-react'
 import { TodoButton } from './TodoButton'
@@ -53,6 +54,7 @@ export function Composer({
   stop,
   run,
 }: Props) {
+  const t = useUiText()
   const [suggestion, setSuggestion] = useState(0)
   const [dragging, setDragging] = useState(false)
   const attachFiles = async (files: File[]) => {
@@ -121,13 +123,13 @@ export function Composer({
         }}
       >
         {!!attachments.length && (
-          <div className="attachment-list" aria-label="Draft attachments">
+          <div className="attachment-list" aria-label={t("Draft attachments")}>
             {attachments.map((a) => (
               <div className="attachment-chip" key={a.id}>
                 {a.preview ? <img src={a.preview} alt={a.name} /> : <FileText size={22} />}
                 <span title={a.path}>
                   {a.name}
-                  <small>{Math.max(1, Math.round(a.size / 1024))} KB</small>
+                  <small>{Math.max(1, Math.round(a.size / 1024))}{' ' + t("KB")}</small>
                 </span>
                 <button
                   type="button"
@@ -142,7 +144,7 @@ export function Composer({
           </div>
         )}
         {suggestions.length > 0 && (
-          <div className="command-list" role="listbox" aria-label="Slash commands">
+          <div className="command-list" role="listbox" aria-label={t("Slash commands")}>
             {suggestions.map((command, i) => (
               <button
                 key={command.name}
@@ -155,7 +157,7 @@ export function Composer({
                 }}
               >
                 <strong>/{command.name}</strong>
-                <span>{command.description || command.source}</span>
+                <span>{command.source === 'desktop' ? t(command.description || command.source) : command.description || command.source}</span>
               </button>
             ))}
           </div>
@@ -170,8 +172,8 @@ export function Composer({
           onFocus={() => {
             if (hasSlash && !loading) refreshCommands?.()
           }}
-          aria-label="Message Pi"
-          placeholder="Ask anything, or / for commands"
+          aria-label={t("Message Pi")}
+          placeholder={t("Ask anything, or / for commands")}
           rows={2}
           value={draft}
           disabled={loading}
@@ -216,7 +218,7 @@ export function Composer({
         <div className="composer-controls">
           <div className="model-controls">
             <select
-              aria-label="Model"
+              aria-label={t("Model")}
               disabled={locked}
               value={session.state.model ? `${session.state.model.provider}/${session.state.model.id}` : ''}
               onChange={(e) => {
@@ -224,7 +226,7 @@ export function Composer({
                 if (model) void run('set_model', { provider: model.provider, modelId: model.id })
               }}
             >
-              {!session.state.model && <option value="">Select a model</option>}
+              {!session.state.model && <option value="">{t("Select a model")}</option>}
               {session.state.model &&
                 !session.models.some(
                   (m) => m.id === session.state.model?.id && m.provider === session.state.model.provider,
@@ -240,15 +242,14 @@ export function Composer({
               ))}
             </select>
             <select
-              aria-label="Thinking level"
+              aria-label={t("Thinking level")}
               disabled={locked || !session.levels.length}
               value={session.state.thinkingLevel || 'off'}
               onChange={(e) => void run('set_thinking_level', { level: e.target.value })}
             >
               {(session.levels.length ? session.levels : [session.state.thinkingLevel || 'off']).map(
                 (level) => (
-                  <option key={level} value={level}>
-                    Thinking: {level}
+                  <option key={level} value={level}>{t("Thinking:")} {t(level)}
                   </option>
                 ),
               )}
@@ -258,12 +259,12 @@ export function Composer({
           <div className="send-controls">
             <ContextMeter usage={session.contextUsage} />
             {attach && (
-              <label className="attach-button" title="Attach files">
+              <label className="attach-button" title={t("Attach files")}>
                 <Paperclip size={16} />
                 <input
                   type="file"
                   multiple
-                  aria-label="Attach files"
+                  aria-label={t("Attach files")}
                   disabled={loading || sending}
                   onChange={(e) => {
                     void attachFiles(Array.from(e.target.files || []))
@@ -275,8 +276,8 @@ export function Composer({
             {busy && (
               <button
                 className="send-button stop-button"
-                aria-label="Stop generation"
-                title="Stop generation"
+                aria-label={t("Stop generation")}
+                title={t("Stop generation")}
                 onClick={() => void stop()}
               >
                 <Square size={14} fill="currentColor" />
@@ -284,8 +285,8 @@ export function Composer({
             )}
             <button
               className="send-button"
-              aria-label={busy ? 'Send steering message' : 'Send message'}
-              title={busy ? 'Send steering message' : 'Send message'}
+              aria-label={busy ? t('Send steering message') : t('Send message')}
+              title={busy ? t('Send steering message') : t('Send message')}
               disabled={(!draft.trim() && !attachments.length) || loading || sending}
               onClick={() => void send()}
             >
@@ -294,7 +295,7 @@ export function Composer({
           </div>
         </div>
       </div>
-      <div className="composer-footer" role="group" aria-label="Allowance and keyboard shortcuts">
+      <div className="composer-footer" role="group" aria-label={t("Allowance and keyboard shortcuts")}>
         <div className="composer-footer-left">
           {supportsCodexFeatures(session.state.model) && <CodexQuota usage={usage} />}
           {Object.values(statuses).some(Boolean) && (
@@ -303,10 +304,10 @@ export function Composer({
         </div>
         <span className="composer-shortcuts">
           {busy
-            ? '↵ Steer · ⌥↵ Follow-up · ⇧↵ New line · Esc Stop'
+            ? t('↵ Steer · ⌥↵ Follow-up · ⇧↵ New line · Esc Stop')
             : enterToSend
-              ? '↵ Send · ⇧↵ New line'
-              : '⌘/Ctrl ↵ Send'}
+              ? t('↵ Send · ⇧↵ New line')
+              : t('⌘/Ctrl ↵ Send')}
         </span>
       </div>
     </>

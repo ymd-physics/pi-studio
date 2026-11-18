@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { ShieldQuestion, BookOpen, Folder, X, Maximize2 } from 'lucide-react'
 import type { PiRecord } from '../../../../packages/shared/desktop'
@@ -23,6 +24,7 @@ export function ExtensionDialog({
   reading?: boolean
   onReadingChange?: (reading: boolean) => void
 }) {
+  const t = useUiText()
   const [value, setValue] = useState(request.prefill || '')
   const [selected, setSelected] = useState<number>()
   const [detail, setDetail] = useState<string>()
@@ -30,7 +32,7 @@ export function ExtensionDialog({
   const inspector = useRef<HTMLDivElement>(null)
   const inspectOrigin = useRef<HTMLButtonElement | null>(null)
   const titleId = useId()
-  const title = stripAnsi(request.title || 'Extension request')
+  const title = stripAnsi(request.title || t('Extension request'))
   const message = stripAnsi(request.message || '')
   const options: string[] = Array.isArray(request.options) ? request.options : []
   const kinds: Record<string, string> = {
@@ -63,8 +65,8 @@ export function ExtensionDialog({
     const previous = document.activeElement as HTMLElement | null
     const target =
       detail !== undefined
-        ? root.querySelector<HTMLElement>('[aria-label="Close full text"]')
-        : inspectOrigin.current || root.querySelector<HTMLElement>('textarea, [aria-label="Dismiss request"]')
+        ? root.querySelector<HTMLElement>('[data-close-full-text]')
+        : inspectOrigin.current || root.querySelector<HTMLElement>('textarea, [data-dismiss-request]')
     target?.focus({ preventScroll: true })
     return () => {
       if (root.contains(document.activeElement) && previous?.isConnected && !previous.closest('[hidden]'))
@@ -138,26 +140,26 @@ export function ExtensionDialog({
             <div className="review-symbol">
               <ShieldQuestion size={21} />
             </div>
-            <h3>Request review</h3>
-            <p>A decision for this session.</p>
+            <h3>{t("Request review")}</h3>
+            <p>{t("A decision for this session.")}</p>
             <dl>
               <div>
-                <dt>WORKSPACE</dt>
+                <dt>{t("WORKSPACE")}</dt>
                 <dd title={workspace || context}>{workspace || context}</dd>
               </div>
               {sessionTitle && (
                 <div>
-                  <dt>SESSION</dt>
+                  <dt>{t("SESSION")}</dt>
                   <dd title={sessionTitle}>{sessionTitle}</dd>
                 </div>
               )}
               <div>
-                <dt>INTERFACE</dt>
-                <dd>Pi extension</dd>
+                <dt>{t("INTERFACE")}</dt>
+                <dd>{t("Pi extension")}</dd>
               </div>
               <div>
-                <dt>REQUEST TYPE</dt>
-                <dd>{kind}</dd>
+                <dt>{t("REQUEST TYPE")}</dt>
+                <dd>{t(kind)}</dd>
               </div>
             </dl>
           </aside>
@@ -169,16 +171,14 @@ export function ExtensionDialog({
                 <button
                   type="button"
                   className="icon-button"
-                  aria-label="Dismiss request"
+                  data-dismiss-request aria-label={t("Dismiss request")}
                   onClick={() => answer({ cancelled: true })}
                 >
                   <X size={17} />
                 </button>
               </div>
               <div className="review-eyebrow">
-                <ShieldQuestion size={14} />
-                Response requested
-              </div>
+                <ShieldQuestion size={14} />{t("Response requested")}</div>
               <div className="review-title">
                 <h2 id={titleId}>
                   {title.slice(0, 180)}
@@ -191,7 +191,7 @@ export function ExtensionDialog({
               {message && (
                 <div className="review-message">
                   <header>
-                    <span>Request details</span>
+                    <span>{t("Request details")}</span>
                     {inspect(message, 'request message')}
                   </header>
                   <pre>
@@ -202,7 +202,7 @@ export function ExtensionDialog({
               )}
               {request.method === 'select' ? (
                 <fieldset className="review-options">
-                  <legend>Choose a response</legend>
+                  <legend>{t("Choose a response")}</legend>
                   {options.map((option, index) => {
                     const text = stripAnsi(option)
                     return (
@@ -242,36 +242,32 @@ export function ExtensionDialog({
         <footer className="review-actions">
           {onReadingChange && (
             <button type="button" className="review-context-button" onClick={() => onReadingChange(true)}>
-              <BookOpen size={15} />
-              View conversation
-            </button>
+              <BookOpen size={15} />{t("View conversation")}</button>
           )}
-          <button type="button" onClick={() => answer({ cancelled: true })}>
-            Cancel
-          </button>
+          <button type="button" onClick={() => answer({ cancelled: true })}>{t("Cancel")}</button>
           <button
             className="primary"
             type="submit"
             disabled={request.method === 'select' && selected === undefined}
           >
-            {request.method === 'confirm' ? 'Confirm' : request.method === 'select' ? 'Continue' : 'Submit'}
+            {request.method === 'confirm' ? t('Confirm') : request.method === 'select' ? t('Continue') : t('Submit')}
           </button>
         </footer>
         {detail !== undefined && (
-          <div ref={inspector} className="request-detail" role="region" aria-label="Full request text">
+          <div ref={inspector} className="request-detail" role="region" aria-label={t("Full request text")}>
             <header>
-              <strong>Full request text</strong>
+              <strong>{t("Full request text")}</strong>
               <button
                 type="button"
                 className="icon-button"
-                aria-label="Close full text"
+                data-close-full-text aria-label={t("Close full text")}
                 onClick={closeDetail}
               >
                 <X size={15} />
               </button>
             </header>
             <pre tabIndex={0}>{detail}</pre>
-            <footer>Complete extension text. Escape returns to the request.</footer>
+            <footer>{t("Complete extension text. Escape returns to the request.")}</footer>
           </div>
         )}
       </form>

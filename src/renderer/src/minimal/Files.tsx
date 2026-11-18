@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Folder, FileText, X } from 'lucide-react'
 import type { FileEntry } from '../../../../packages/shared/desktop'
@@ -15,6 +16,7 @@ export function Files({
   handle?: string
   refreshKey?: number
 }) {
+  const t = useUiText()
   const [directory, setDirectory] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -75,7 +77,7 @@ export function Files({
       active = false
     }
   }, [directory, refresh, handle, refreshKey])
-  const discard = () => !dirty || window.confirm('Discard unsaved file changes?')
+  const discard = () => !dirty || window.confirm(t('Discard unsaved file changes?'))
   const open = async (entry: FileEntry) => {
     if (saveActive.current || !discard()) return
     const id = ++generation.current
@@ -161,7 +163,7 @@ export function Files({
   return (
     <aside
       className={`file-panel ${dragging ? 'drag-over' : ''}`}
-      aria-label="Workspace files"
+      aria-label={t("Workspace files")}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes('Files')) {
           e.preventDefault()
@@ -194,10 +196,10 @@ export function Files({
       }}
     >
       <div className="panel-heading">
-        <strong>Files</strong>
+        <strong>{t("Files")}</strong>
         <button
           className="icon-button"
-          aria-label="Close files"
+          aria-label={t("Close files")}
           onClick={() => {
             if (discard()) {
               onDirty(false)
@@ -211,7 +213,7 @@ export function Files({
       <div className="file-location">
         <button
           className="icon-button"
-          aria-label="Parent folder"
+          aria-label={t("Parent folder")}
           disabled={!directory || saving}
           onClick={() =>
             void open({ name: '..', path: directory.split('/').slice(0, -1).join('/'), isDirectory: true })
@@ -219,7 +221,7 @@ export function Files({
         >
           <ChevronLeft size={16} />
         </button>
-        <span>{directory || 'Workspace'}</span>
+        <span>{directory || t('Workspace')}</span>
       </div>
       <div
         className="file-list"
@@ -257,31 +259,24 @@ export function Files({
         <div
           className="menu file-context-menu"
           role="menu"
-          aria-label="File actions"
+          aria-label={t("File actions")}
           style={{ left: menu.x, top: menu.y }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           {menu.entry && (
             <>
-              <button role="menuitem" onClick={() => void operate('copy', menu.entry)}>
-                Copy
-              </button>
+              <button role="menuitem" onClick={() => void operate('copy', menu.entry)}>{t("Copy")}</button>
               <button
                 role="menuitem"
                 onClick={() => {
                   setNaming({ type: 'rename', entry: menu.entry, name: menu.entry!.name })
                   setMenu(undefined)
                 }}
-              >
-                Rename…
-              </button>
-              <button role="menuitem" onClick={() => void operate('trash', menu.entry)}>
-                Move to Trash…
-              </button>
+              >{t("Rename…")}</button>
+              <button role="menuitem" onClick={() => void operate('trash', menu.entry)}>{t("Move to Trash…")}</button>
             </>
           )}
-          <button role="menuitem" onClick={() => void operate('paste', menu.entry)}>
-            Paste{menu.entry?.isDirectory ? ' into folder' : ''}
+          <button role="menuitem" onClick={() => void operate('paste', menu.entry)}>{t("Paste")}{menu.entry?.isDirectory ? t(' into folder') : ''}
           </button>
           {!menu.entry && (
             <>
@@ -291,18 +286,14 @@ export function Files({
                   setNaming({ type: 'create', folder: false, name: '' })
                   setMenu(undefined)
                 }}
-              >
-                New file…
-              </button>
+              >{t("New file…")}</button>
               <button
                 role="menuitem"
                 onClick={() => {
                   setNaming({ type: 'create', folder: true, name: '' })
                   setMenu(undefined)
                 }}
-              >
-                New folder…
-              </button>
+              >{t("New folder…")}</button>
             </>
           )}
         </div>
@@ -312,16 +303,16 @@ export function Files({
           <form
             className="dialog"
             role="dialog"
-            aria-label={naming.type === 'rename' ? 'Rename file' : naming.folder ? 'New folder' : 'New file'}
+            aria-label={naming.type === 'rename' ? t('Rename file') : naming.folder ? t('New folder') : t('New file')}
             onSubmit={(e) => {
               e.preventDefault()
               void operate(naming.type, naming.entry, naming.name, naming.folder)
             }}
           >
-            <h2>{naming.type === 'rename' ? 'Rename' : naming.folder ? 'New folder' : 'New file'}</h2>
+            <h2>{naming.type === 'rename' ? t('Rename') : naming.folder ? t('New folder') : t('New file')}</h2>
             <input
               autoFocus
-              aria-label="File name"
+              aria-label={t("File name")}
               required
               maxLength={180}
               disabled={saving}
@@ -329,12 +320,8 @@ export function Files({
               onChange={(e) => setNaming({ ...naming, name: e.target.value })}
             />
             <div className="dialog-actions">
-              <button type="button" disabled={saving} onClick={() => setNaming(undefined)}>
-                Cancel
-              </button>
-              <button className="primary" disabled={saving || !naming.name.trim()}>
-                Save
-              </button>
+              <button type="button" disabled={saving} onClick={() => setNaming(undefined)}>{t("Cancel")}</button>
+              <button className="primary" disabled={saving || !naming.name.trim()}>{t("Save")}</button>
             </div>
           </form>
         </div>
@@ -352,16 +339,16 @@ export function Files({
               {dirty ? ' •' : ''}
             </span>
             <button disabled={reading || saving} onClick={() => setEditing(!editing)}>
-              {editing ? 'Preview' : 'Edit'}
+              {editing ? t('Preview') : t('Edit')}
             </button>
             <button disabled={!dirty || saving || reading} onClick={() => void save()}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('Saving…') : t('Save')}
             </button>
           </div>
           {editing ? (
             <textarea
               disabled={reading || saving}
-              aria-label="File editor"
+              aria-label={t("File editor")}
               className="file-editor"
               spellCheck={false}
               value={draft}

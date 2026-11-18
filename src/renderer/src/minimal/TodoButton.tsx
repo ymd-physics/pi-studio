@@ -1,7 +1,9 @@
+import { useUiText } from './language'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ListTodo, Check, Circle, LoaderCircle } from 'lucide-react'
 import type { TodoState } from '../../../../packages/shared/todo-state'
 export function TodoButton({ state }: { state?: TodoState }) {
+  const t = useUiText()
   const [open, setOpen] = useState(false)
   const control = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -41,27 +43,27 @@ export function TodoButton({ state }: { state?: TodoState }) {
   return (
     <div className="todo-control" ref={control}>
       <button type="button" className="todo-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <ListTodo size={14} /> Todo ({label})
+        <ListTodo size={14} />{' ' + t("Todo (")}{label})
       </button>
       {open && (
-        <div className="todo-popover" role="region" aria-label="Session todo">
+        <div className="todo-popover" role="region" aria-label={t("Session todo")}>
           <header>
-            <strong>Session tasks</strong>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close todo">
+            <strong>{t("Session tasks")}</strong>
+            <button type="button" onClick={() => setOpen(false)} aria-label={t("Close todo")}>
               ×
             </button>
           </header>
           <div className="todo-scroll" ref={list}>
             {state?.availability === 'disabled' ? (
               <>
-                <p>rpiv-todo is not detected in this session. Install it in your terminal:</p>
-                <code>pi install npm:@juicesharp/rpiv-todo</code>
-                <p>Then run /reload here while Pi is idle.</p>
+                <p>{t("rpiv-todo is not detected in this session. Install it in your terminal:")}</p>
+                <code>{t("pi install npm:@juicesharp/rpiv-todo")}</code>
+                <p>{t("Then run /reload here while Pi is idle.")}</p>
               </>
             ) : state?.availability !== 'enabled' ? (
-              <p>Task state is unavailable. Reload the session to retry.</p>
+              <p>{t("Task state is unavailable. Reload the session to retry.")}</p>
             ) : !tasks.length ? (
-              <p>No tasks yet. Tasks created by Pi will appear here.</p>
+              <p>{t("No tasks yet. Tasks created by Pi will appear here.")}</p>
             ) : (
               <ul>
                 {tasks.map((task) => (
@@ -79,8 +81,7 @@ export function TodoButton({ state }: { state?: TodoState }) {
                       </span>
                       {task.description && <p>{task.description}</p>}
                       {!!task.blockedBy?.length && (
-                        <small>
-                          Depends on{' '}
+                        <small>{t("Depends on")}{' '}
                           {task.blockedBy
                             .map((id) => {
                               const dependency = tasks.find((t) => t.id === id)

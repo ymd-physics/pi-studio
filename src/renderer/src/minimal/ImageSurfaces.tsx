@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FileText, Image as ImageIcon, X } from 'lucide-react'
@@ -113,6 +114,7 @@ function ImageCard({
   scope: 'attachment' | 'tool'
   onOpen: OpenImage
 }) {
+  const t = useUiText()
   const card = useRef<HTMLButtonElement>(null)
   const [frame, setFrame] = useState<HTMLSpanElement | null>(null)
   const size = useThumbnailSize(frame)
@@ -156,7 +158,7 @@ function ImageCard({
       </span>
       <span className="image-caption">
         <strong title={image.path || image.name}>{image.name}</strong>
-        {thumb.failed ? <small>Preview unavailable</small> : meta && <small>{meta}</small>}
+        {thumb.failed ? <small>{t("Preview unavailable")}</small> : meta && <small>{meta}</small>}
       </span>
     </>
   )
@@ -200,6 +202,7 @@ export function UserAttachments({
   handle?: string
   onOpen: OpenImage
 }) {
+  const t = useUiText()
   const pathKey = files.map((file) => file.path).join('\n')
   const [sizes, setSizes] = useState<Record<string, number | null>>({})
   useEffect(() => {
@@ -220,14 +223,14 @@ export function UserAttachments({
   return (
     <div className="message-attachments">
       {!!images.length && (
-        <div className="image-grid user-image-grid" role="group" aria-label="Attached images">
+        <div className="image-grid user-image-grid" role="group" aria-label={t("Attached images")}>
           {images.map((image) => (
             <ImageCard key={image.key} image={image} scope="attachment" onOpen={onOpen} />
           ))}
         </div>
       )}
       {!!files.length && (
-        <div className="file-grid" role="group" aria-label="Attached files">
+        <div className="file-grid" role="group" aria-label={t("Attached files")}>
           {files.map((file, index) => (
             <div className="file-card" key={`${file.path}:${index}`} title={file.path}>
               <span className="file-icon" aria-hidden="true">
@@ -259,9 +262,10 @@ export function ToolImageGrid({
   images: ToolImage[]
   onOpen: OpenImage
 }) {
+  const t = useUiText()
   if (!images.length) return null
   return (
-    <div className="image-grid tool-images" role="group" aria-label="Tool result images">
+    <div className="image-grid tool-images" role="group" aria-label={t("Tool result images")}>
       {images.map((image) => (
         <ImageCard key={image.key} image={image} scope="tool" onOpen={onOpen} />
       ))}
@@ -270,6 +274,7 @@ export function ToolImageGrid({
 }
 
 export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose: () => void }) {
+  const t = useUiText()
   const close = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -327,7 +332,7 @@ export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose
             ref={close}
             type="button"
             className="image-lightbox-close icon-button"
-            aria-label="Close image"
+            aria-label={t("Close image")}
             onClick={onClose}
           >
             <X size={18} />

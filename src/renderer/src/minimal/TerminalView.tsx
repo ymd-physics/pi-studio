@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronRight, CornerDownLeft, Eraser, PanelLeft, Terminal as TerminalIcon, X } from 'lucide-react'
 import type { TerminalCompletion, TerminalInfo, TerminalTransport } from '../../../../packages/shared/terminal'
@@ -34,6 +35,7 @@ function terminalTheme(info: TerminalInfo) {
 }
 
 export function TerminalView({ info, visible, transport, workspaceName, terminalFontSize = 'auto', onFontSizeChange, toggleSidebar, onClose, action, onError }: TerminalViewProps) {
+  const t = useUiText()
   const root = useRef<HTMLElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
@@ -345,47 +347,47 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
   const title = workspaceName || info.workspace.split('/').filter(Boolean).at(-1) || info.workspace
   return <section ref={root} className="terminal-view" hidden={!visible} aria-label={`Terminal ${info.name}`}>
     <header className="topbar terminal-view__header">
-      <button className="icon-button" onClick={toggleSidebar} aria-label="Toggle sidebar" title="Toggle sidebar"><PanelLeft size={18} /></button>
+      <button className="icon-button" onClick={toggleSidebar} aria-label={t("Toggle sidebar")} title={t("Toggle sidebar")}><PanelLeft size={18} /></button>
       <div className="breadcrumbs"><span>{title}</span><ChevronRight size={12} /><strong title={info.name}>{info.name}</strong></div>
       <div className="header-actions terminal-view__header-actions">
-        <div className="terminal-font-control" role="group" aria-label="Terminal font size">
-          <button aria-label="Decrease terminal font size" disabled={fontSize <= 10} onClick={() => onFontSizeChange(fontSize - 1)}>A−</button>
-          <button aria-label="Increase terminal font size" disabled={fontSize >= 22} onClick={() => onFontSizeChange(fontSize + 1)}>A+</button>
+        <div className="terminal-font-control" role="group" aria-label={t("Terminal font size")}>
+          <button aria-label={t("Decrease terminal font size")} disabled={fontSize <= 10} onClick={() => onFontSizeChange(fontSize - 1)}>{t("A−")}</button>
+          <button aria-label={t("Increase terminal font size")} disabled={fontSize >= 22} onClick={() => onFontSizeChange(fontSize + 1)}>{t("A+")}</button>
         </div>
         <span className="terminal-shell-badge">{info.shell.split('/').at(-1)}</span>
-        <button className="icon-button" aria-label="Clear terminal output" title="Clear output" onClick={() => term.current?.clear()}><Eraser size={15} /></button>
-        <button className="icon-button" aria-label="Close terminal" title="Close terminal" onClick={onClose}><X size={15} /></button>
+        <button className="icon-button" aria-label={t("Clear terminal output")} title={t("Clear output")} onClick={() => term.current?.clear()}><Eraser size={15} /></button>
+        <button className="icon-button" aria-label={t("Close terminal")} title={t("Close terminal")} onClick={onClose}><X size={15} /></button>
       </div>
     </header>
-    {(error || info.reason) && <div role={error ? 'alert' : 'status'} className={`banner ${error ? 'error' : ''}`}><span>{error || info.reason}</span>{error && <button className="icon-button" aria-label="Dismiss terminal error" onClick={() => setError('')}><X size={14} /></button>}</div>}
+    {(error || info.reason) && <div role={error ? 'alert' : 'status'} className={`banner ${error ? 'error' : ''}`}><span>{error || info.reason}</span>{error && <button className="icon-button" aria-label={t("Dismiss terminal error")} onClick={() => setError('')}><X size={14} /></button>}</div>}
     <div className="terminal-view__body" style={{ fontSize }}>
-      <div className="terminal-view__output" onContextMenu={(event) => context(event, 'output')}><div ref={host} className="terminal-view__xterm" aria-label="Terminal output" /></div>
+      <div className="terminal-view__output" onContextMenu={(event) => context(event, 'output')}><div ref={host} className="terminal-view__xterm" aria-label={t("Terminal output")} /></div>
       <div className={`terminal-view__shelf ${editable ? '' : 'is-direct'}`}>
-        <div className="terminal-view__identity"><TerminalIcon size={15} /><strong>{editable ? 'COMMAND' : 'DIRECT'}</strong><small>{info.shell.split('/').at(-1)}</small></div>
+        <div className="terminal-view__identity"><TerminalIcon size={15} /><strong>{editable ? t('COMMAND') : t('DIRECT')}</strong><small>{info.shell.split('/').at(-1)}</small></div>
         <div className="terminal-view__editor">
-          <div className="terminal-view__context"><span title={info.cwd}>{info.cwd}</span><span className={`terminal-view__state ${info.state === 'ready' ? 'is-ready' : info.state === 'running' ? 'is-running' : ''}`}>{completing ? 'Completing…' : info.state}</span></div>
-          {editable ? <textarea ref={input} aria-label="Terminal command" disabled={modeBusy || info.state === 'exited'} value={draft}
-            placeholder={commandMode ? 'Type a command…' : 'Draft only — not sent to the running program'} rows={2} spellCheck={false}
+          <div className="terminal-view__context"><span title={info.cwd}>{info.cwd}</span><span className={`terminal-view__state ${info.state === 'ready' ? 'is-ready' : info.state === 'running' ? 'is-running' : ''}`}>{completing ? t('Completing…') : t(info.state)}</span></div>
+          {editable ? <textarea ref={input} aria-label={t("Terminal command")} disabled={modeBusy || info.state === 'exited'} value={draft}
+            placeholder={commandMode ? t('Type a command…') : t('Draft only — not sent to the running program')} rows={2} spellCheck={false}
             onChange={(event) => { historyIndex.current = null; changeDraft(event.target.value) }} onKeyDown={onKeyDown}
             onSelect={(event) => { const cursor = pendingCursor.current; if (cursor && (event.currentTarget.selectionStart !== cursor.start || event.currentTarget.selectionEnd !== cursor.end)) invalidate() }}
             onContextMenu={(event) => context(event, 'command')}
             onPaste={(event) => { const start = event.currentTarget.selectionStart, end = event.currentTarget.selectionEnd; const next = draft.slice(0, start) + event.clipboardData.getData('text') + draft.slice(end); if (encoder.encode(next).length > MAX_DRAFT_BYTES) { event.preventDefault(); report(new Error('Paste exceeds the 64 KiB draft limit; no text was inserted')) } }} />
-            : <p className="terminal-view__direct">{info.state === 'exited' ? 'Shell exited. Close this terminal to discard its output.' : 'Keyboard input goes directly to the terminal. Click the output area to interact.'}</p>}
-          {candidates.length > 0 && editable && <div role="listbox" aria-label="Native completions" className="terminal-view__completions">{candidates.map((candidate, index) => <button type="button" role="option" tabIndex={-1} aria-selected={index === candidateIndex} key={index} onMouseDown={(event) => event.preventDefault()} onClick={() => { choose(candidate, index); invalidate() }}>{candidate.label ?? candidate.buffer}</button>)}</div>}
-          <div className="terminal-view__actions"><span className="terminal-view__hints">{editable ? (commandMode ? (candidates.length ? '↑↓ Select · ↵ Accept · Esc Dismiss' : '↵ Run · ⇧↵ New line · Tab Complete · ⌃U Erase · ⌃C Cancel') : 'Draft only · no automatic queue') : 'Native interactive input'}{editable && bytes > MAX_COMMAND_BYTES && <span className="error-text"> · {bytes}/4096 bytes</span>}</span>
-            {!commandMode && info.state === 'running' && <button onClick={() => setDraftWhileDirect((value) => !value)}>{draftWhileDirect ? 'Hide draft' : 'Draft next command'}</button>}
-            {info.state === 'ready' && <button disabled={modeBusy || completing || busy} onClick={() => void switchMode()}>{commandMode ? 'Direct mode' : 'Command mode'}</button>}
-            {info.state === 'running' && <button className="error-text" onClick={() => void transport.interrupt(info.id).catch(report)}>Stop</button>}
-            {editable && <button className="terminal-run" onClick={() => void submit()} disabled={busy || completing || !commandMode || info.state !== 'ready' || !draft.trim() || bytes > MAX_COMMAND_BYTES}>Run <CornerDownLeft size={12} /></button>}
+            : <p className="terminal-view__direct">{info.state === 'exited' ? t('Shell exited. Close this terminal to discard its output.') : t('Keyboard input goes directly to the terminal. Click the output area to interact.')}</p>}
+          {candidates.length > 0 && editable && <div role="listbox" aria-label={t("Native completions")} className="terminal-view__completions">{candidates.map((candidate, index) => <button type="button" role="option" tabIndex={-1} aria-selected={index === candidateIndex} key={index} onMouseDown={(event) => event.preventDefault()} onClick={() => { choose(candidate, index); invalidate() }}>{candidate.label ?? candidate.buffer}</button>)}</div>}
+          <div className="terminal-view__actions"><span className="terminal-view__hints">{editable ? (commandMode ? (candidates.length ? t('↑↓ Select · ↵ Accept · Esc Dismiss') : t('↵ Run · ⇧↵ New line · Tab Complete · ⌃U Erase · ⌃C Cancel')) : t('Draft only · no automatic queue')) : t('Native interactive input')}{editable && bytes > MAX_COMMAND_BYTES && <span className="error-text"> · {bytes}{t("/4096 bytes")}</span>}</span>
+            {!commandMode && info.state === 'running' && <button onClick={() => setDraftWhileDirect((value) => !value)}>{draftWhileDirect ? t('Hide draft') : t('Draft next command')}</button>}
+            {info.state === 'ready' && <button disabled={modeBusy || completing || busy} onClick={() => void switchMode()}>{commandMode ? t('Direct mode') : t('Command mode')}</button>}
+            {info.state === 'running' && <button className="error-text" onClick={() => void transport.interrupt(info.id).catch(report)}>{t("Stop")}</button>}
+            {editable && <button className="terminal-run" onClick={() => void submit()} disabled={busy || completing || !commandMode || info.state !== 'ready' || !draft.trim() || bytes > MAX_COMMAND_BYTES}>{t("Run") + ' '}<CornerDownLeft size={12} /></button>}
           </div>
         </div>
       </div>
-      <footer className="terminal-view__status"><span><i />Local session <span>·</span> {info.state === 'exited' ? `Exited ${info.exitCode ?? ''}` : 'Temporary until App quit'}</span><span>{info.shell.split('/').at(-1)} · UTF-8</span></footer>
+      <footer className="terminal-view__status"><span><i />{t("Local session") + ' '}<span>·</span> {info.state === 'exited' ? `Exited ${info.exitCode ?? ''}` : t('Temporary until App quit')}</span><span>{info.shell.split('/').at(-1)}{' ' + t("· UTF-8")}</span></footer>
     </div>
-    {menu && <div ref={menuNode} className="menu terminal-output-menu" role="menu" aria-label="Terminal text actions" style={{ left: menu.x, top: menu.y }} onPointerDown={(event) => event.stopPropagation()}>
-      <button role="menuitem" disabled={!menu.selection} onClick={() => { const text = menu.selection; setMenu(undefined); void transport.copyText(text).catch(report) }}>Copy</button>
-      <button role="menuitem" disabled={info.state === 'exited' || (menu.kind === 'output' && (commandMode || modeBusy))} onClick={() => void paste()}>Paste</button>
-      <button role="menuitem" onClick={() => { if (menu.kind === 'command') input.current?.select(); else term.current?.selectAll(); setMenu(undefined) }}>Select all</button>
+    {menu && <div ref={menuNode} className="menu terminal-output-menu" role="menu" aria-label={t("Terminal text actions")} style={{ left: menu.x, top: menu.y }} onPointerDown={(event) => event.stopPropagation()}>
+      <button role="menuitem" disabled={!menu.selection} onClick={() => { const text = menu.selection; setMenu(undefined); void transport.copyText(text).catch(report) }}>{t("Copy")}</button>
+      <button role="menuitem" disabled={info.state === 'exited' || (menu.kind === 'output' && (commandMode || modeBusy))} onClick={() => void paste()}>{t("Paste")}</button>
+      <button role="menuitem" onClick={() => { if (menu.kind === 'command') input.current?.select(); else term.current?.selectAll(); setMenu(undefined) }}>{t("Select all")}</button>
     </div>}
   </section>
 }

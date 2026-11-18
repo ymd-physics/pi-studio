@@ -1,3 +1,4 @@
+import { uiText } from '../../../packages/shared/language'
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard, nativeImage } from 'electron'
 import { join, dirname, delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +15,7 @@ import type { Attachment, AttachmentInput } from '../../../packages/shared/asset
 
 const here = dirname(fileURLToPath(import.meta.url))
 let window: BrowserWindow | undefined
+const t = (text: string) => uiText(service?.preferences.language)(text)
 let service: DesktopService
 let codexUsage: CodexUsageService | undefined
 let terminals: TerminalService | undefined
@@ -125,9 +127,9 @@ else {
           const info = terminalService().list().find((item) => item.id === id)
           if (!info) { await terminalService().close(id); return true }
           const choice = await dialog.showMessageBox(window!, {
-            type: 'warning', message: 'Close this terminal?',
-            detail: `${info.name}\n\nIts shell and managed tasks will be stopped. The terminal entry and output will be discarded; workspace files and shell-managed command history will not be deleted.`,
-            buttons: ['Cancel', 'Close terminal'], defaultId: 0, cancelId: 0,
+            type: 'warning', message: t('Close this terminal?'),
+            detail: `${info.name}\n\n${t('Its shell and managed tasks will be stopped. The terminal entry and output will be discarded; workspace files and shell-managed command history will not be deleted.')}`,
+            buttons: [t('Cancel'), t('Close terminal')], defaultId: 0, cancelId: 0,
           })
           if (choice.response !== 1) return false
           await terminalService().close(id)
@@ -151,10 +153,10 @@ else {
           if (answer.canceled) return service.preferences
           const trust = await dialog.showMessageBox(window!, {
             type: 'warning',
-            title: 'Trust this workspace?',
-            message: 'Pi can run tools and load project extensions in this directory. Terminals can run commands with your user permissions.',
+            title: t('Trust this workspace?'),
+            message: t('Pi can run tools and load project extensions in this directory. Terminals can run commands with your user permissions.'),
             detail: answer.filePaths[0],
-            buttons: ['Cancel', 'Trust workspace'],
+            buttons: [t('Cancel'), t('Trust workspace')],
             defaultId: 0,
             cancelId: 0,
           })
@@ -164,10 +166,10 @@ else {
         removeWorkspace: async (path) => {
           const choice = await dialog.showMessageBox(window!, {
             type: 'warning',
-            message: 'Close this workspace?',
+            message: t('Close this workspace?'),
             detail:
-              'All Pi sessions and terminals in this workspace will be stopped and closed. Terminal entries and output will be discarded. Workspace files, saved Pi history and shell-managed command history will not be deleted.',
-            buttons: ['Cancel', 'Stop sessions and close workspace'],
+              t('All Pi sessions and terminals in this workspace will be stopped and closed. Terminal entries and output will be discarded. Workspace files, saved Pi history and shell-managed command history will not be deleted.'),
+            buttons: [t('Cancel'), t('Stop sessions and close workspace')],
             defaultId: 0,
             cancelId: 0,
           })
@@ -179,9 +181,9 @@ else {
         deleteSession: async (workspace, path) => {
           const choice = await dialog.showMessageBox(window!, {
             type: 'warning',
-            message: 'Move this Pi session to Trash?',
-            detail: `Any running work in this session will be aborted before removal. This removes the shared session from both Pi Studio and terminal Pi. Separate forks and clones are kept. You can restore the file from Trash.\n\n${path}`,
-            buttons: ['Cancel', 'Move to Trash'],
+            message: t('Move this Pi session to Trash?'),
+            detail: `${t('Any running work in this session will be aborted before removal. This removes the shared session from both Pi Studio and terminal Pi. Separate forks and clones are kept. You can restore the file from Trash.')}\n\n${path}`,
+            buttons: [t('Cancel'), t('Move to Trash')],
             defaultId: 0,
             cancelId: 0,
           })
@@ -226,9 +228,9 @@ else {
             const path = await service.filePath(handle, operation.path)
             const choice = await dialog.showMessageBox(window!, {
               type: 'warning',
-              message: 'Move to Trash?',
+              message: t('Move to Trash?'),
               detail: path,
-              buttons: ['Cancel', 'Move to Trash'],
+              buttons: [t('Cancel'), t('Move to Trash')],
               defaultId: 0,
               cancelId: 0,
             })
@@ -246,9 +248,9 @@ else {
         openLocalLink: async (handle, href, baseDir) => {
           const target = await localTarget(handle, href, baseDir)
           const choice = await dialog.showMessageBox(window!, {
-            type: 'warning', message: 'Open this local file or folder?',
-            detail: `${target.path}\n\nmacOS will open it with the associated application. Only open files you trust.`,
-            buttons: ['Cancel', 'Open original'], defaultId: 0, cancelId: 0,
+            type: 'warning', message: t('Open this local file or folder?'),
+            detail: `${target.path}\n\n${t('macOS will open it with the associated application. Only open files you trust.')}`,
+            buttons: [t('Cancel'), t('Open original')], defaultId: 0, cancelId: 0,
           })
           if (choice.response !== 1) return
           const current = await localTarget(handle, href, baseDir)
@@ -263,8 +265,8 @@ else {
           if (!target.insideWorkspace) {
             if (requestApproval !== true) return { needsApproval: true }
             const choice = await dialog.showMessageBox(window!, {
-              type: 'warning', message: 'Preview an image outside this workspace?', detail: target.path,
-              buttons: ['Cancel', 'Load image'], defaultId: 0, cancelId: 0,
+              type: 'warning', message: t('Preview an image outside this workspace?'), detail: target.path,
+              buttons: [t('Cancel'), t('Load image')], defaultId: 0, cancelId: 0,
             })
             if (choice.response !== 1) return { needsApproval: true }
           }
@@ -285,9 +287,9 @@ else {
           if (typeof url !== 'string' || !/^https?:\/\//i.test(url))
             throw new Error('Only HTTP(S) links can be opened')
           const choice = await dialog.showMessageBox(window!, {
-            message: 'Open link in your browser?',
+            message: t('Open link in your browser?'),
             detail: url,
-            buttons: ['Cancel', 'Open'],
+            buttons: [t('Cancel'), t('Open')],
             defaultId: 0,
             cancelId: 0,
           })
@@ -328,7 +330,7 @@ else {
         }).catch((error) => {
           // Keep failed cleanup reachable for confirmed quit/retry; do not silently
           // replace the owner of possibly live terminal processes after a crash.
-          dialog.showErrorBox('Terminal cleanup needs attention', String(error))
+          dialog.showErrorBox(t('Terminal cleanup needs attention'), String(error))
         })
       })
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -350,7 +352,7 @@ else {
       })
     })
     .catch((error) => {
-      dialog.showErrorBox('Pi Studio could not start', String(error))
+      dialog.showErrorBox(t('Pi Studio could not start'), String(error))
       app.quit()
     })
   app.on('before-quit', (event) => {
@@ -362,9 +364,9 @@ else {
       if (window && !window.isDestroyed()) {
         const choice = await dialog.showMessageBox(window, {
           type: 'warning',
-          message: 'Quit Pi Studio?',
-          detail: `All running Pi sessions, terminals and queued messages will be stopped. Terminal entries and output will be discarded; saved Pi history and shell-managed command history are kept. No managed sessions will be left running in the background.${documentDirty ? '\nUnsaved file edits will be discarded.' : ''}`,
-          buttons: ['Cancel', documentDirty ? 'Discard changes and quit' : 'Stop sessions and quit'],
+          message: t('Quit Pi Studio?'),
+          detail: `${t('All running Pi sessions, terminals and queued messages will be stopped. Terminal entries and output will be discarded; saved Pi history and shell-managed command history are kept. No managed sessions will be left running in the background.')}${documentDirty ? '\n' + t('Unsaved file edits will be discarded.') : ''}`,
+          buttons: [t('Cancel'), documentDirty ? t('Discard changes and quit') : t('Stop sessions and quit')],
           defaultId: 0,
           cancelId: 0,
         })
@@ -382,7 +384,7 @@ else {
     })().catch((error) => {
       checkingQuit = false
       confirmedShutdown = false
-      dialog.showErrorBox('Could not close Pi', String(error))
+      dialog.showErrorBox(t('Could not close Pi'), String(error))
     })
   })
   app.on('window-all-closed', () => app.quit())

@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type MouseEvent } from 'react'
 import { ExternalLink, Image as ImageIcon } from 'lucide-react'
 import { linkKind, type LocalImagePreview } from '../../../../packages/shared/links'
@@ -27,6 +28,7 @@ export function MarkdownLink({ href, children }: { href?: string; children: Reac
 }
 
 export function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const t = useUiText()
   const origin = useContext(MarkdownOrigin)
   const holder = useRef<HTMLSpanElement>(null)
   const generation = useRef(0)
@@ -64,14 +66,14 @@ export function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
     return () => { generation.current++ }
   }, [near, src, origin?.handle, origin?.baseDir])
   return <span className="markdown-image" ref={holder}>
-    {preview?.dataUrl ? <img src={preview.dataUrl} alt={alt || 'Local image'} decoding="async" onLoad={e => setHeight(e.currentTarget.getBoundingClientRect().height)} /> :
-      <span className="markdown-image-placeholder" style={height ? { height } : undefined}><ImageIcon size={18} />{alt || 'Image'}</span>}
+    {preview?.dataUrl ? <img src={preview.dataUrl} alt={alt || t('Local image')} decoding="async" onLoad={e => setHeight(e.currentTarget.getBoundingClientRect().height)} /> :
+      <span className="markdown-image-placeholder" style={height ? { height } : undefined}><ImageIcon size={18} />{alt || t('Image')}</span>}
     <span className="markdown-image-caption">
       {preview?.dataUrl && alt && <span>{alt}</span>}
-      {src && <MarkdownLink href={src}><ExternalLink size={12} /> Open original</MarkdownLink>}
-      {loading ? <span>Loading preview…</span> : preview?.needsApproval ?
-        <button type="button" onClick={() => void load(true)}>Load image outside workspace</button> :
-        !local ? <span>Remote image not loaded automatically</span> : !origin ? <span>Open a session to preview</span> : null}
+      {src && <MarkdownLink href={src}><ExternalLink size={12} />{' ' + t("Open original")}</MarkdownLink>}
+      {loading ? <span>{t("Loading preview…")}</span> : preview?.needsApproval ?
+        <button type="button" onClick={() => void load(true)}>{t("Load image outside workspace")}</button> :
+        !local ? <span>{t("Remote image not loaded automatically")}</span> : !origin ? <span>{t("Open a session to preview")}</span> : null}
     </span>
     {error && <span className="markdown-link-error" role="status">{error}</span>}
   </span>

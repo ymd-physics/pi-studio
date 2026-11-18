@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
@@ -75,13 +76,14 @@ function Thinking({
   groupOpen?: boolean
 }) {
   const [open, toggle] = useDisclosure(row.key)
+  const t = useUiText()
   const timing = activity.thoughts[row.key]
   const running = !!timing && timing.ended === undefined
   const now = useClock(running)
   const visible = groupOpen || running || open
   const title = running
-    ? `Thinking… ${elapsed(now - timing.started)}`
-    : `Thought${timing ? ' ' + elapsed(timing.ended! - timing.started) : ''}`
+    ? `${t('Thinking…')} ${elapsed(now - timing.started)}`
+    : `${t('Thought')}${timing ? ' ' + elapsed(timing.ended! - timing.started) : ''}`
   return (
     <div className="thinking-row process-row" hidden={!visible}>
       <button className="process-toggle" aria-expanded={open} onClick={toggle}>
@@ -110,6 +112,7 @@ function Tool({
   workspace: string
   groupOpen: boolean
 }) {
+  const t = useUiText()
   const [open, toggle] = useDisclosure(row.key)
   const call = { ...row.call, arguments: activity.tools[row.call.id || '']?.args ?? row.call.arguments }
   const status = toolState(call, results, activity.tools)
@@ -136,24 +139,23 @@ function Tool({
     <div className={`tool-row process-row tool-${status}`} hidden={!visible}>
       <button className="process-toggle tool-toggle" aria-expanded={open} onClick={toggle}>
         <ChevronRight size={14} className={open ? 'disclosure-open' : ''} />
-        <strong>{row.call.name || 'tool'}</strong>
+        <strong>{row.call.name || t('tool')}</strong>
         <span className="tool-info">
           <span className="tool-summary">{toolSummary(call, workspace)}</span>
           {call.name === 'edit' && status === 'succeeded' && (diff ? (
-            <span className="tool-call-changes" title="Native edit diff · this call only" aria-label={`${diff.added} ${diff.added === 1 ? 'line' : 'lines'} added, ${diff.removed} ${diff.removed === 1 ? 'line' : 'lines'} removed`}>
+            <span className="tool-call-changes" title={t("Native edit diff · this call only")} aria-label={`${diff.added} ${diff.added === 1 ? 'line' : 'lines'} added, ${diff.removed} ${diff.removed === 1 ? 'line' : 'lines'} removed`}>
               <b className="tool-lines-added">+{diff.added}</b>
               <b className="tool-lines-removed">−{diff.removed}</b>
             </span>
-          ) : <span className="tool-diff-missing">Diff unavailable</span>)}
+          ) : <span className="tool-diff-missing">{t("Diff unavailable")}</span>)}
           {written !== undefined && (
-            <span className="tool-write-count" title="Submitted content length. Previous content unavailable; this is not a diff.">
-              Written {written} {written === 1 ? 'line' : 'lines'}
+            <span className="tool-write-count" title={t("Submitted content length. Previous content unavailable; this is not a diff.")}>{t("Written")} {written} {written === 1 ? t('line') : t('lines')}
             </span>
           )}
         </span>
         <span className={`tool-state state-${status}`}>
           <Icon size={13} className={status === 'running' ? 'spin' : ''} />
-          {label}
+          {t(label)}
         </span>
       </button>
       {visible && open && (
@@ -161,15 +163,15 @@ function Tool({
           {call.name === 'write' || call.name === 'edit' ? (
             <ToolChanges call={call} result={result} status={status} />
           ) : isWebTool(call.name) ? <WebToolResult name={call.name!} args={call.arguments || {}} result={result} status={status} /> : <>
-          <div className="tool-section-label">Arguments</div>
+          <div className="tool-section-label">{t("Arguments")}</div>
           <pre>{JSON.stringify(call.arguments || {}, null, 2)}</pre>
-          <div className="tool-section-label">{status === 'running' ? 'Live output' : 'Result'}</div>
+          <div className="tool-section-label">{status === 'running' ? t('Live output') : t('Result')}</div>
           <pre className={status === 'failed' ? 'error-text' : ''}>
             {result
               ? boundedOutput(result)
               : status === 'pending'
-                ? 'Waiting to execute…'
-                : 'Waiting for output…'}
+                ? t('Waiting to execute…')
+                : t('Waiting for output…')}
           </pre>
           </>}
         </div>
@@ -199,6 +201,7 @@ function ToolGroup({
   workspace: string
   onOpenImage: (image: LightboxImage) => void
 }) {
+  const t = useUiText()
   const [open, toggle] = useDisclosure(`group:${rows.find((row) => row.kind === 'tool')!.key}`)
   const { expanded } = useContext(Disclosures)
   const [limit, setLimit] = useState(100)
@@ -225,46 +228,42 @@ function ToolGroup({
             <ChevronRight size={14} className={open ? 'disclosure-open' : ''} />
             <Layers size={16} />
             <strong>
-              {calls.length} tool {calls.length === 1 ? 'call' : 'calls'}
+              {calls.length}{' ' + t("tool") + ' '}{calls.length === 1 ? t('call') : t('calls')}
             </strong>
           </button>
-          <div className="tool-group-status" aria-label="Tool execution status">
+          <div className="tool-group-status" aria-label={t("Tool execution status")}>
             {stats.states.succeeded === calls.length ? (
               <span className="status-badge state-succeeded">
                 <Check size={12} />
-                {calls.some(call => isWebTool(call.name)) ? 'Calls completed' : 'All succeeded'}
+                {calls.some(call => isWebTool(call.name)) ? t('Calls completed') : t('All succeeded')}
               </span>
             ) : (
               <>
                 {stats.states.succeeded > 0 && (
                   <span className="status-badge state-succeeded">
                     <Check size={12} />
-                    {stats.states.succeeded} succeeded
-                  </span>
+                    {stats.states.succeeded} {t("succeeded")}</span>
                 )}
                 {stats.states.failed > 0 && (
                   <span className="status-badge state-failed">
                     <CircleAlert size={12} />
-                    {stats.states.failed} failed
-                  </span>
+                    {stats.states.failed} {t("failed")}</span>
                 )}
                 {stats.states.running > 0 && (
                   <span className="status-badge state-running">
                     <LoaderCircle size={12} className="spin" />
-                    {stats.states.running} running
-                  </span>
+                    {stats.states.running} {t("running")}</span>
                 )}
                 {stats.states.pending > 0 && (
                   <span className="status-badge">
                     <Circle size={11} />
-                    {stats.states.pending} pending
-                  </span>
+                    {stats.states.pending} {t("pending")}</span>
                 )}
               </>
             )}
           </div>
         </div>
-        <div className="tool-group-tags" aria-label="Tool breakdown">
+        <div className="tool-group-tags" aria-label={t("Tool breakdown")}>
           {[...stats.tools].map(([name, count]) => (
             <span className="tool-tag" key={name}>
               <span>{name}</span>
@@ -272,22 +271,21 @@ function ToolGroup({
             </span>
           ))}
           {!!allImages.length && (
-            <span className="tool-tag" title="Image results from this group">
-              <span>images</span>
+            <span className="tool-tag" title={t("Image results from this group")}>
+              <span>{t("images")}</span>
               <span className="tool-tag-count">{allImages.length}</span>
             </span>
           )}
           {stats.tools.has('edit') && (
-            <span className="tool-diff-tag" title="Cumulative successful edit diffs, not a Git net diff">
-              <span>Changes</span>
+            <span className="tool-diff-tag" title={t("Cumulative successful edit diffs, not a Git net diff")}>
+              <span>{t("Changes")}</span>
               <b className="state-succeeded">+{stats.added}</b>
               <b className="state-failed">−{stats.removed}</b>
             </span>
           )}
           {stats.unavailable > 0 && (
             <span className="tool-diff-unavailable">
-              {stats.unavailable} edit {stats.unavailable === 1 ? 'diff' : 'diffs'} unavailable
-            </span>
+              {stats.unavailable}{' ' + t("edit") + ' '}{stats.unavailable === 1 ? t('diff') : t('diffs')} {t("unavailable")}</span>
           )}
         </div>
       </div>
@@ -308,8 +306,7 @@ function ToolGroup({
           ),
         )}
         {open && rows.length > limit && (
-          <button className="load-earlier" onClick={() => setLimit((n) => n + 100)}>
-            Show more calls ({rows.length - limit})
+          <button className="load-earlier" onClick={() => setLimit((n) => n + 100)}>{t("Show more calls (")}{rows.length - limit})
           </button>
         )}
       </div>
@@ -318,41 +315,38 @@ function ToolGroup({
 }
 const tokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n))
 function RunEnding({ metrics }: { metrics: RunMetrics }) {
+  const t = useUiText()
   const tps =
     metrics.output !== undefined && metrics.output > 0 && metrics.generationMs > 0
       ? (metrics.output / (metrics.generationMs / 1000)).toFixed(1)
       : '—'
   return (
-    <div className="run-metrics" aria-label="Response statistics">
+    <div className="run-metrics" aria-label={t("Response statistics")}>
       <span>
         <Clock3 size={13} />
         {elapsed(metrics.totalMs)}
       </span>
-      <span title="Output tokens / summed model-turn time, including TTFT; excludes tool execution time">
-        {tps} tok/s
-      </span>
-      {metrics.ttftMs !== undefined && <span>TTFT {(metrics.ttftMs / 1000).toFixed(1)}s</span>}
-      {metrics.input !== undefined && <span>in {tokens(metrics.input)}</span>}
-      {metrics.output !== undefined && <span>out {tokens(metrics.output)}</span>}
+      <span title={t("Output tokens / summed model-turn time, including TTFT; excludes tool execution time")}>
+        {tps}{t("tok/s")}</span>
+      {metrics.ttftMs !== undefined && <span>{t("TTFT") + ' '}{(metrics.ttftMs / 1000).toFixed(1)}{t("s")}</span>}
+      {metrics.input !== undefined && <span>{t("in") + ' '}{tokens(metrics.input)}</span>}
+      {metrics.output !== undefined && <span>{t("out") + ' '}{tokens(metrics.output)}</span>}
       {metrics.stallMs > 0 && (
-        <span className="state-running">
-          stall {metrics.stallCount}× / {(metrics.stallMs / 1000).toFixed(1)}s
-        </span>
+        <span className="state-running">{t("stall")}{metrics.stallCount}× / {(metrics.stallMs / 1000).toFixed(1)}{t("s")}</span>
       )}
       {!!metrics.cost && !!metrics.totalTokens && (
-        <span title="Effective cost per million total tokens, not total charge">
-          rate ${((metrics.cost / metrics.totalTokens) * 1_000_000).toFixed(2)}/M
-        </span>
+        <span title={t("Effective cost per million total tokens, not total charge")}>{t("rate $")}{((metrics.cost / metrics.totalTokens) * 1_000_000).toFixed(2)}{t("/M")}</span>
       )}
     </div>
   )
 }
 function Working({ active }: { active?: Activity['active'] }) {
+  const t = useUiText()
   const now = useClock(!!active)
   return (
     <div className="working" role="status">
       <LoaderCircle size={14} className="spin" />
-      {active ? `${active.phase}… ${elapsed(now - active.started)}` : 'Pi is working'}
+      {active ? `${active.phase}… ${elapsed(now - active.started)}` : t('Pi is working')}
     </div>
   )
 }
@@ -378,6 +372,7 @@ export const Conversation = memo(
     onSubagentDraft?: (request: SupervisorRequest) => void
     requestNavigation?: { requestId: string; sequence: number }
   }) {
+  const t = useUiText()
     const scroll = useRef<HTMLDivElement>(null)
     const follow = useRef(true)
     const [away, setAway] = useState(false)
@@ -425,7 +420,7 @@ export const Conversation = memo(
               ref={scroll}
               className="conversation"
               tabIndex={-1}
-              aria-label="Conversation"
+              aria-label={t("Conversation")}
               onScroll={(e) => {
                 if (!active) return
                 const el = e.currentTarget
@@ -441,8 +436,7 @@ export const Conversation = memo(
                       follow.current = false
                       setVisible((n) => n + 100)
                     }}
-                  >
-                    Show earlier messages ({rows.length - visible})
+                  >{t("Show earlier messages (")}{rows.length - visible})
                   </button>
                 )}
                 {rows.slice(-visible).map((row) => {
@@ -488,7 +482,7 @@ export const Conversation = memo(
                         role={level === 'error' ? 'alert' : 'status'}
                       >
                         <span className="notice-label">
-                          {level === 'error' ? 'Error' : level === 'warning' ? 'Notice' : 'Session update'}
+                          {level === 'error' ? t('Error') : level === 'warning' ? t('Notice') : t('Session update')}
                         </span>
                         {text.length > 1200 ? (
                           <details>
@@ -514,7 +508,7 @@ export const Conversation = memo(
                       />
                     )
                   }
-                  const notice = subagentNotice(row.message)
+                  const notice = subagentNotice(row.message, t)
                   if (notice) return <SubagentNotice key={row.key} message={row.message} view={notice} onDraft={onSubagentDraft} onRequest={navigateRequest} requestIds={requestIds} />
                   if (row.message.role === 'custom' && backgroundNotice(row.message)) {
                     return <WebBackgroundNotice key={row.key} message={row.message} />
@@ -542,7 +536,7 @@ export const Conversation = memo(
                       {!user &&
                         Array.isArray(row.message.content) &&
                         row.message.content.some((b) => b.type === 'image') && (
-                          <small className="muted">Image attachment retained in Pi session</small>
+                          <small className="muted">{t("Image attachment retained in Pi session")}</small>
                         )}
                     </article>
                   )
@@ -558,8 +552,8 @@ export const Conversation = memo(
             {away && (
               <button
                 className="jump-bottom icon-button"
-                title="Jump to latest"
-                aria-label="Jump to latest"
+                title={t("Jump to latest")}
+                aria-label={t("Jump to latest")}
                 onClick={() => {
                   follow.current = true
                   scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: 'smooth' })

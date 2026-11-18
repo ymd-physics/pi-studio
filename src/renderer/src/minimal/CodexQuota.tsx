@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { useEffect, useState } from 'react'
 import { Gauge, Info } from 'lucide-react'
 import type { CodexUsageReason, CodexUsageSnapshot } from '../../../../packages/shared/codex-usage'
@@ -25,6 +26,7 @@ function resetCountdown(resetsAt: number | null, now: number): string {
 }
 
 export function CodexQuota({ usage }: { usage?: CodexUsageSnapshot }) {
+  const t = useUiText()
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     setNow(Date.now())
@@ -36,28 +38,27 @@ export function CodexQuota({ usage }: { usage?: CodexUsageSnapshot }) {
     return null
   const reason = usage.reason && reasons[usage.reason]
   return (
-    <div className={`codex-quota ${usage.stale ? 'stale' : ''}`} aria-label="Codex subscription allowance">
+    <div className={`codex-quota ${usage.stale ? 'stale' : ''}`} aria-label={t("Codex subscription allowance")}>
       <span className="quota-label">
-        <Gauge size={12} /> Codex
-      </span>
+        <Gauge size={12} />{t("Codex")}</span>
       {usage.windows.map((window) => (
         <span
           className="quota-window"
           key={window.durationSeconds}
           title={`${window.remainingPercent.toFixed(1)}% remaining${window.resetsAt !== null && Number.isFinite(window.resetsAt) ? ` · Resets ${new Date(window.resetsAt * 1000).toLocaleString()}` : ''}${usage.capturedAt ? ` · Updated ${new Date(usage.capturedAt).toLocaleTimeString()}` : ''}`}
         >
-          <span>{window.durationSeconds === 18000 ? '5h' : 'Week'}</span>
+          <span>{window.durationSeconds === 18000 ? t('5h') : t('Week')}</span>
           <span className="quota-track" aria-hidden="true">
             <span style={{ width: `${window.remainingPercent}%` }} />
           </span>
-          <span>{Math.round(window.remainingPercent)}% left</span>
+          <span>{Math.round(window.remainingPercent)}{t("% left")}</span>
           <span className="quota-reset">{resetCountdown(window.resetsAt, now)}</span>
         </span>
       ))}
       {(reason || usage.stale || usage.state !== 'ready') && (
         <span className="quota-unavailable" title={reason || (usage.stale ? 'Showing the last known allowance; awaiting fresh data.' : 'Allowance data is unavailable.')}>
           <Info size={11} />
-          {usage.stale ? 'Update delayed' : 'Quota unavailable'}
+          {usage.stale ? t('Update delayed') : t('Quota unavailable')}
         </span>
       )}
     </div>

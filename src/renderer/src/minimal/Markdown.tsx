@@ -1,3 +1,4 @@
+import { useUiText } from './language'
 import { Children, isValidElement, memo, useContext, useEffect, useState } from 'react'
 import { MarkdownLink, MarkdownImage, MarkdownOrigin, type MarkdownLocation } from './MarkdownLinks'
 import { linkKind } from '../../../../packages/shared/links'
@@ -10,6 +11,7 @@ import { highlightCodeToHtml } from '../lib/shiki-highlighter'
 import { KATEX_MACROS, preprocessMarkdownMath } from '../features/timeline/markdown-math-preprocess'
 
 export const CodeBlock = memo(function CodeBlock({ code, language }: { code: string; language?: string }) {
+  const t = useUiText()
   const [highlighted, setHighlighted] = useState<{ code: string; language?: string; html: string }>()
   const [copyStatus, setCopyStatus] = useState('Copy')
   useEffect(() => {
@@ -31,7 +33,7 @@ export const CodeBlock = memo(function CodeBlock({ code, language }: { code: str
   return (
     <div className="code-block">
       <div className="code-toolbar">
-        <span>{language ?? 'text'}</span>
+        <span>{language ?? t('text')}</span>
         <button
           type="button"
           onClick={async () => {
@@ -43,7 +45,7 @@ export const CodeBlock = memo(function CodeBlock({ code, language }: { code: str
             }
           }}
         >
-          {copyStatus}
+          {t(copyStatus)}
         </button>
       </div>
       {html ? (
@@ -58,6 +60,7 @@ export const CodeBlock = memo(function CodeBlock({ code, language }: { code: str
 })
 
 function DisplayEquation({ source, children }: { source: string; children: React.ReactNode }) {
+  const t = useUiText()
   const [status, setStatus] = useState('Copy LaTeX')
   useEffect(() => setStatus('Copy LaTeX'), [source])
   return (
@@ -66,8 +69,8 @@ function DisplayEquation({ source, children }: { source: string; children: React
       <button
         className="equation-copy"
         type="button"
-        aria-label={status}
-        title={status}
+        aria-label={t(status)}
+        title={t(status)}
         onClick={async () => {
           try {
             await window.desktop.copyText(source)
@@ -77,7 +80,7 @@ function DisplayEquation({ source, children }: { source: string; children: React
           }
         }}
       >
-        {status}
+        {t(status)}
       </button>
     </div>
   )
