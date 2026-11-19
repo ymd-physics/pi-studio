@@ -206,6 +206,9 @@ export function Composer({
           onChange={(e) => setDraft(e.target.value)}
           onPaste={(e) => {
             if (!attach || loading || sending) return
+            // Let the textarea paste ordinary text itself, preserving its native undo history.
+            const types = e.clipboardData.types
+            if (types.includes('text/plain') && types.every(type => ['text/plain', 'text/html', 'text/rtf'].includes(type))) return
             e.preventDefault()
             const text = e.clipboardData.getData('text/plain')
             const input = e.currentTarget
@@ -213,12 +216,9 @@ export function Composer({
               end = input.selectionEnd
             const before = input.value
             void attach().then((handled) => {
-              if (!handled && text) {
-                setDraft(before.slice(0, start) + text + before.slice(end))
-                requestAnimationFrame(() => {
-                  input.focus()
-                  input.setSelectionRange(start + text.length, start + text.length)
-                })
+              if (!handled && text && document.activeElement === input && input.value === before && input.selectionStart === start && input.selectionEnd === end) {
+                // Use Chromium's editing transaction so replacing a selection can be undone.
+                document.execCommand('insertText', false, text)
               }
             })
           }}

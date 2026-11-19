@@ -25,13 +25,12 @@ const MAX_DRAFT_BYTES = 64 * 1024
 const MAX_COMMAND_BYTES = 4096
 const signature = (info: TerminalInfo) => `${info.id}:${info.mode}:${info.state}`
 function terminalTheme(info: TerminalInfo) {
-  const dark = document.documentElement.classList.contains('dark')
+  const css = getComputedStyle(document.documentElement)
+  const color = (key: string) => css.getPropertyValue(key).trim() || undefined
   const idle = info.mode === 'command' && info.state === 'ready'
-  const foreground = dark ? '#d2d5db' : '#373c43'
-  return { background: dark ? '#19191c' : '#fcfcfd', foreground,
-    cursor: idle ? 'transparent' : dark ? '#7aaaff' : '#4176e6',
-    cursorAccent: idle ? foreground : dark ? '#19191c' : '#fcfcfd',
-    selectionBackground: dark ? '#28344b' : '#eaf0fc' }
+  const foreground = color('--text'), background = color('--canvas')
+  return { background, foreground, cursor: idle ? 'transparent' : color('--accent'),
+    cursorAccent: idle ? foreground : background, selectionBackground: color('--accent-soft') }
 }
 
 export function TerminalView({ info, visible, transport, workspaceName, terminalFontSize = 'auto', onFontSizeChange, toggleSidebar, onClose, action, onError }: TerminalViewProps) {
@@ -190,7 +189,7 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
         }
         theme()
         themeObserver = new MutationObserver(theme)
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] })
         instance.onData((data) => {
           if (disposed || latest.current.info.state === 'exited') return
           const reply = isTerminalReply(data)

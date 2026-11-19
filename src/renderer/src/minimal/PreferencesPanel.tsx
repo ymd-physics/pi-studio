@@ -1,3 +1,4 @@
+import { themes, themeKeys, type Theme } from '../../../../packages/shared/themes'
 import { useUiText } from './language'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, Info, Monitor, PanelsTopLeft, X } from 'lucide-react'
@@ -34,9 +35,16 @@ export function PreferencesDialog({ children, label, onClose, workspace = false 
 export interface PreferencesPanelProps {
   preferences: Preferences
   runtime: string
-  onChange(patch: Partial<Pick<Preferences, 'theme' | 'font' | 'enterToSend' | 'language'>>): void
+  onChange(patch: Partial<Pick<Preferences, 'theme' | 'dayTheme' | 'nightTheme' | 'font' | 'enterToSend' | 'language'>>): void
   onClose(): void
   loadPlugins(): Promise<PluginInventory>
+}
+
+function ThemeChoices({ selected, onSelect }: { selected: Theme; onSelect(theme: Theme): void }) {
+  const t = useUiText()
+  return <div className="pp-theme-grid">{themeKeys.map(theme => <button className="pp-theme-choice" aria-pressed={selected === theme} key={theme} onClick={() => onSelect(theme)}>
+    <span data-palette={theme} className={`pp-mini pp-mini-${theme}`} aria-hidden="true"><i /><b /></span>{t(themes[theme])}
+  </button>)}</div>
 }
 
 export function PreferencesPanel({ preferences, runtime, onChange, onClose, loadPlugins }: PreferencesPanelProps) {
@@ -64,7 +72,7 @@ export function PreferencesPanel({ preferences, runtime, onChange, onClose, load
           <p className="pp-intro">{t("Make space for comfortable reading.")}</p>
           <div className="pp-group">{([
             ['Language', 'Interface language', preferences.language === 'zh-CN' ? '简体中文' : 'English'],
-            ['Theme', 'Light, dark or system appearance', preferences.theme],
+            ['Theme', 'Fixed or automatic appearance', preferences.theme === 'system' ? 'Automatic' : themes[preferences.theme]],
             ['Font', 'Conversation typography', preferences.font || 'default'],
           ] as const).map(([name, description, value]) => (
             <button className="pp-row" key={name} onClick={() => navigate(name)}>
@@ -79,7 +87,12 @@ export function PreferencesPanel({ preferences, runtime, onChange, onClose, load
             <button key={language} className="pp-choice" lang={language} aria-pressed={(preferences.language || 'en') === language} onClick={() => onChange({ language })}>{label}</button>
           ))}
         </>}
-        {detail === 'Theme' && <><p className="pp-intro">{t("Choose the appearance of Pi Studio. System follows your system appearance.")}</p><div className="pp-theme-grid">{(['light', 'dark', 'system'] as const).map((theme) => <button className="pp-theme-choice" aria-pressed={preferences.theme === theme} key={theme} onClick={() => onChange({ theme })}><span className={`pp-mini pp-mini-${theme}`} aria-hidden="true"><i /><b /></span>{t(theme[0].toUpperCase() + theme.slice(1))}</button>)}</div></>}
+        {detail === 'Theme' && <>
+          <div className="pp-modes">{(['fixed', 'system'] as const).map(mode => <button key={mode} aria-pressed={(preferences.theme === 'system') === (mode === 'system')} onClick={() => onChange({ theme: mode === 'system' ? mode : preferences.theme !== 'system' ? preferences.theme : preferences.fixedTheme ?? 'light' })}>{t(mode === 'system' ? 'Automatic' : 'Fixed theme')}</button>)}</div>
+          {preferences.theme === 'system' ? <><p className="pp-intro">{t('Switch themes with the system appearance.')}</p>{(['dayTheme', 'nightTheme'] as const).map(key => <fieldset key={key} className="pp-theme-period"><legend>{t(key === 'dayTheme' ? 'Daytime' : 'Nighttime')}</legend>
+            <ThemeChoices selected={preferences[key] ?? (key === 'dayTheme' ? 'light' : 'dark')} onSelect={theme => onChange({ [key]: theme })} />
+          </fieldset>)}</> : <><p className="pp-intro">{t('Use the same theme throughout the day.')}</p><ThemeChoices selected={preferences.theme} onSelect={theme => onChange({ theme })} /></>}
+        </>}
         {detail === 'Font' && <><p className="pp-intro">{t("Choose a font for conversation text. Interface, code and mathematics retain their own fonts.")}</p>{(['default', 'serif'] as const).map((font) => <button className="pp-choice" aria-pressed={(preferences.font || 'default') === font} key={font} onClick={() => onChange({ font })}>{font === 'default' ? t('Default') : t('Serif')}</button>)}<div className={`pp-font-preview ${preferences.font === 'serif' ? 'pp-serif' : ''}`} aria-label={t("Font preview")}><span lang="en">A little space to think.</span><br /><span lang="zh-CN">给想法留一点空间。</span></div></>}
         {category === 'Plugins' && <><p className="pp-intro">{t("Workspace-local resources are shown in workspace information, not here.")}</p><PluginList inventory={inventory} error={error} scope="global" onRetry={retry} /></>}
         {category === 'About' && <>

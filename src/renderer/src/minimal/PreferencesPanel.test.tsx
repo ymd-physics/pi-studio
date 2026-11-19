@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { PluginInventory } from '../../../../packages/shared/plugins'
 import { PreferencesPanel } from './PreferencesPanel'
@@ -27,9 +27,18 @@ const defaults = () => ({ preferences: { workspaces: [], theme: 'system' as cons
 
 it('PreferencesPanel uses category rail, drill-ins, bilingual preview and actual About values', async () => {
   const props = defaults()
-  render(<PreferencesPanel {...props} />)
+  const view = render(<PreferencesPanel {...props} />)
   expect(screen.queryByText('Composer')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: /Theme Light/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^Theme/ }))
+  const day = within(screen.getByRole('group', { name: 'Daytime' }))
+  expect(day.getAllByRole('button')).toHaveLength(6)
+  fireEvent.click(day.getByRole('button', { name: 'Paper' }))
+  expect(props.onChange).toHaveBeenCalledWith({ dayTheme: 'paper' })
+  fireEvent.click(within(screen.getByRole('group', { name: 'Nighttime' })).getByRole('button', { name: 'Moss Ink' }))
+  expect(props.onChange).toHaveBeenCalledWith({ nightTheme: 'ocean' })
+  fireEvent.click(screen.getByRole('button', { name: 'Fixed theme' }))
+  expect(props.onChange).toHaveBeenCalledWith({ theme: 'light' })
+  view.rerender(<PreferencesPanel {...props} preferences={{ ...props.preferences, theme: 'light' }} />)
   fireEvent.click(screen.getByRole('button', { name: 'Dark' }))
   expect(props.onChange).toHaveBeenCalledWith({ theme: 'dark' })
   fireEvent.click(screen.getByLabelText('Back to Appearance'))

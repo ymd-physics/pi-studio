@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, rename, realpath, stat, open, unlink } from
 import { join, basename, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
+import { isTheme } from '../../../packages/shared/themes'
 import type { Preferences, PiRecord, Snapshot, SessionInfo } from '../../../packages/shared/desktop'
 import { discoverPi, loadSessionManager, type PiInstallation } from './runtime'
 import { PiProcess } from './rpc'
@@ -100,6 +101,8 @@ export class DesktopService {
     }
     if (!['default', 'serif'].includes(this.preferences.font!)) this.preferences.font = 'default'
     if (this.preferences.language !== 'zh-CN') this.preferences.language = 'en'
+    if (!isTheme(this.preferences.theme) && this.preferences.theme !== 'system') this.preferences.theme = 'system'
+    for (const key of ['dayTheme', 'nightTheme', 'fixedTheme'] as const) if (!isTheme(this.preferences[key])) delete this.preferences[key]
     const terminalSize = this.preferences.terminalFontSize
     if (terminalSize !== 'auto' && (!Number.isInteger(terminalSize) || typeof terminalSize !== 'number' || terminalSize < 10 || terminalSize > 22)) this.preferences.terminalFontSize = 'auto'
     this.installation = await discoverPi()
@@ -143,7 +146,11 @@ export class DesktopService {
         this.preferences.terminalFontSize = size
       }
       if (patch.language === 'en' || patch.language === 'zh-CN') this.preferences.language = patch.language
-      if (['system', 'light', 'dark'].includes(patch.theme!)) this.preferences.theme = patch.theme!
+      if (patch.theme === 'system' || isTheme(patch.theme)) {
+        if (isTheme(this.preferences.theme)) this.preferences.fixedTheme = this.preferences.theme
+        this.preferences.theme = patch.theme
+      }
+      for (const key of ['dayTheme', 'nightTheme'] as const) if (isTheme(patch[key])) this.preferences[key] = patch[key]
       if (['default', 'serif'].includes(patch.font!)) this.preferences.font = patch.font!
       if (typeof patch.enterToSend === 'boolean') this.preferences.enterToSend = patch.enterToSend
       return this.persist()

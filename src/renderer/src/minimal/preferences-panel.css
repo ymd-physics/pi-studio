@@ -32,7 +32,15 @@
 .pp-dialog .pp-mini-dark { background: #19191c; border-color: #494950; }
 .pp-dialog .pp-mini-dark i { background: #28282d; border-color: #494950; }
 .pp-dialog .pp-mini-dark b { background: #52545d; }
-.pp-dialog .pp-mini-system { background: linear-gradient(90deg, #fff 50%, #19191c 50%); }
+.pp-dialog .pp-mini:is(.pp-mini-paper,.pp-mini-celadon,.pp-mini-ocean,.pp-mini-dusk) { background:var(--canvas); border-color:var(--line); }
+.pp-dialog .pp-mini:not(.pp-mini-light,.pp-mini-dark) i { background:var(--sidebar); border-color:var(--line); }
+.pp-dialog .pp-mini:not(.pp-mini-light,.pp-mini-dark) b { background:var(--accent); }
+.pp-modes { display:inline-flex; gap:2px; background:var(--sidebar); border:1px solid var(--line); padding:3px; border-radius:9px; margin-bottom:12px; }
+.pp-modes button[aria-pressed=true] { background:var(--surface); box-shadow:var(--shadow); }
+.pp-theme-period { min-width:0; margin:0 0 18px; border:0; padding:0; }
+.pp-theme-period legend { padding:0 0 8px; font-weight:600; }
+.pp-theme-period .pp-theme-grid { grid-template-columns:repeat(auto-fit,minmax(70px,1fr)); gap:6px; }
+.pp-dialog .pp-theme-period .pp-mini { height:38px; }
 .pp-dialog .pp-choice { display: block; width: 100%; padding: 13px; margin-bottom: 9px; }
 .pp-dialog .pp-font-preview { padding: 20px; margin-top: 16px; border-radius: 10px; background: var(--sidebar); font: 17px/1.8 var(--font); }
 .pp-dialog .pp-serif { font-family: 'Tiempos Text', 'Source Serif 4', 'Iowan Old Style', Georgia, 'Noto Serif CJK SC', 'Songti SC', STSong, serif; }

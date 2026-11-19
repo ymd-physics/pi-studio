@@ -28,5 +28,7 @@ npmRebuild: false
 mac:
   icon: resources/icon.png
   category: public.app-category.developer-tools
-  identity: null
+  identity: '-'
+  hardenedRuntime: false
+  artifactName: 'Pi-Studio-${version}-mac-${arch}.${ext}'
   notarize: false

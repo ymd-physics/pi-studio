@@ -1,5 +1,4 @@
-.terminal-view { --terminal-surface: #fcfcfd; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: var(--text); }
-.dark .terminal-view { --terminal-surface: #19191c; }
+.terminal-view { --terminal-surface: var(--canvas); display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: var(--text); }
 .terminal-view[hidden] { display: none; }
 .terminal-view__header-actions { align-items: center; flex-shrink: 0; }
 .terminal-view .breadcrumbs > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }

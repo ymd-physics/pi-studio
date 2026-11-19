@@ -74,7 +74,10 @@ export interface Preferences {
   workspaces: Workspace[]
   activeWorkspace?: string
   activeSession?: string
-  theme: 'system' | 'light' | 'dark'
+  theme: 'system' | import('./themes').Theme
+  fixedTheme?: import('./themes').Theme
+  dayTheme?: import('./themes').Theme
+  nightTheme?: import('./themes').Theme
   font?: 'default' | 'serif'
   enterToSend: boolean
   /** Automatic follows AI body size; explicit sizes are shared across temporary terminals. */
@@ -119,7 +122,7 @@ export interface DesktopAPI {
   checkUpdate(): Promise<import('./updates').UpdateInfo>
   downloadUpdate(version: string): Promise<'saved' | 'canceled'>
   boot(): Promise<{ preferences: Preferences; runtime: string }>
-  preferences(patch: Partial<Pick<Preferences, 'theme' | 'font' | 'enterToSend' | 'language' | 'terminalFontSize'>>): Promise<Preferences>
+  preferences(patch: Partial<Pick<Preferences, 'theme' | 'dayTheme' | 'nightTheme' | 'font' | 'enterToSend' | 'language' | 'terminalFontSize'>>): Promise<Preferences>
   terminals(): Promise<TerminalInfo[]>
   createTerminal(workspace: string): Promise<TerminalInfo>
   renameTerminal(id: string, name: string): Promise<void>

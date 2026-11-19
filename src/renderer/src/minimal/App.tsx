@@ -1,3 +1,5 @@
+import { resolveTheme } from '../../../../packages/shared/themes'
+import { WorkspaceIcon } from './WorkspaceIcon'
 import { LanguageContext } from './language'
 import { uiText } from '../../../../packages/shared/language'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -5,8 +7,6 @@ import {
   Plus,
   FolderPlus,
   PanelLeft,
-  Info,
-  ChevronRight,
   X,
   Settings2,
   Circle,
@@ -274,15 +274,15 @@ export function App() {
   }, [refreshSessions, showError])
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const update = () =>
-      document.documentElement.classList.toggle(
-        'dark',
-        preferences?.theme === 'dark' || (preferences?.theme === 'system' && media.matches),
-      )
+    const update = () => {
+      const theme = resolveTheme(preferences?.theme, media.matches, preferences?.dayTheme, preferences?.nightTheme)
+      document.documentElement.dataset.theme = theme
+      document.documentElement.classList.toggle('dark', ['dark', 'ocean', 'dusk'].includes(theme))
+    }
     update()
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
-  }, [preferences?.theme])
+  }, [preferences?.theme, preferences?.dayTheme, preferences?.nightTheme])
   useEffect(() => {
     document.documentElement.dataset.font = preferences?.font === 'serif' ? 'serif' : 'default'
   }, [preferences?.font])
@@ -480,7 +480,7 @@ export function App() {
                       aria-expanded={!collapsed.includes(workspace.path)}
                       onClick={() => toggleWorkspace(workspace.path)}
                     >
-                      <ChevronRight size={13} />
+                      <WorkspaceIcon name={collapsed.includes(workspace.path) ? 'closed' : 'open'} live={running.some(r => r.workspace === workspace.path && r.status !== 'inactive')} />
                       <span>{workspace.name}</span>
                     </button>
                     {waitingSessions > 0 && collapsed.includes(workspace.path) && (
@@ -495,12 +495,12 @@ export function App() {
                       </span>
                     )}
                     <button
-                      className="icon-button"
+                      className="icon-button workspace-secondary-action"
                       aria-label={t('Workspace information for {name}', { name: workspace.name })}
                       title={t("Workspace information")}
                       onClick={() => setWorkspaceInfo(workspace)}
                     >
-                      <Info size={14} />
+                      <WorkspaceIcon name="info" />
                     </button>
                     <button
                       className="icon-button"
@@ -520,10 +520,10 @@ export function App() {
                         })
                       }}
                     >
-                      <Plus size={14} />
+                      <WorkspaceIcon name="create" />
                     </button>
                     <button
-                      className="icon-button remove-workspace"
+                      className="icon-button remove-workspace workspace-secondary-action"
                       disabled={loading}
                       aria-label={t('Remove {name}', { name: workspace.name })}
                       title={t('Remove {name}', { name: workspace.name })}
@@ -548,7 +548,7 @@ export function App() {
                         }
                       }}
                     >
-                      <X size={12} />
+                      <WorkspaceIcon name="remove" />
                     </button>
                   </div>
                   {!collapsed.includes(workspace.path) &&
