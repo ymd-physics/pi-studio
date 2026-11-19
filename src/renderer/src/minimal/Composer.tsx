@@ -208,7 +208,10 @@ export function Composer({
             if (!attach || loading || sending) return
             // Let the textarea paste ordinary text itself, preserving its native undo history.
             const types = e.clipboardData.types
-            if (types.includes('text/plain') && types.every(type => ['text/plain', 'text/html', 'text/rtf'].includes(type))) return
+            // Editors can include private metadata; only attachment formats need interception.
+            const hasAttachment = types.includes('Files') || types.some(type => type.startsWith('image/')) ||
+              (types.includes('text/uri-list') && /^file:/im.test(e.clipboardData.getData('text/uri-list')))
+            if (types.includes('text/plain') && !hasAttachment) return
             e.preventDefault()
             const text = e.clipboardData.getData('text/plain')
             const input = e.currentTarget

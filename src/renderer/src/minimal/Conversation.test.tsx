@@ -22,10 +22,46 @@ const messages: Message[] = [
   { role: 'toolResult', toolCallId: 'a', content: 'first private output' },
   { role: 'toolResult', toolCallId: 'b', content: 'exit code 2', isError: true },
 ]
+it('finds earlier conversation rows, cycles through matches and ignores tool output', () => {
+  const history: Message[] = Array.from({ length: 110 }, (_, i) => ({ role: 'user', content: i === 0 ? 'Old Needle' : `message ${i}`, timestamp: i }))
+  render(<Conversation busy={false} messages={[...history, ...messages, { role: 'assistant', content: [{ type: 'text', text: '```js\nneedle()\n```' }] }]} />)
+  expect(screen.queryByText('Old Needle')).toBeNull()
+  fireEvent.keyDown(window, { key: 'f', metaKey: true })
+  const field = screen.getByRole('textbox', { name: 'Find in conversation' })
+  fireEvent.change(field, { target: { value: 'needle' } })
+  expect(screen.getByText('Old Needle').closest('[data-find-current]')).toBeTruthy()
+  fireEvent.keyDown(field, { key: 'Enter' })
+  expect(screen.getByText('2 / 2')).toBeTruthy()
+  fireEvent.change(field, { target: { value: 'first private output' } })
+  expect(screen.getByText('No matching messages')).toBeTruthy()
+  fireEvent.keyDown(field, { key: 'Escape' })
+  expect(screen.queryByRole('search')).toBeNull()
+})
+
+it('finds a Chinese substring in the visible assistant reply', () => {
+  render(<Conversation busy={false} messages={[{role:'assistant', content:[{type:'text', text:'版本已更新到 1.1.0 并打包。'}]}]} />)
+  fireEvent.keyDown(window, { key:'f', metaKey:true })
+  fireEvent.change(screen.getByRole('textbox', {name:'Find in conversation'}), {target:{value:'打包'}})
+  expect(screen.getByText('版本已更新到 1.1.0 并打包。').closest('[data-find-current]')).toBeTruthy()
+})
 it('renders tool counts as Chinese phrases without translating tool identifiers', () => {
   render(<LanguageContext.Provider value="zh-CN"><Conversation messages={[{ role: 'assistant', content: ['todo','todo','read','read','bash'].map((name, i) => call(String(i), name)) }]} busy={false} activity={emptyActivity()} /></LanguageContext.Provider>)
   expect(screen.getByRole('button', { name: '5 次工具调用' })).toBeTruthy()
   expect(within(screen.getByLabelText('工具明细')).getByText('todo')).toBeTruthy()
+})
+
+it('clears nested tool disclosures even after their group is manually closed', () => {
+  render(<Conversation messages={messages} busy={false} />)
+  const collapse = () => screen.queryByRole('button', { name: 'Collapse all details' })
+  expect(collapse()).toBeNull()
+  const group = screen.getByRole('button', { name: '3 tool calls' })
+  fireEvent.click(group)
+  fireEvent.click(screen.getByRole('button', { name: /echo a succeeded/ }))
+  fireEvent.click(group)
+  fireEvent.click(collapse()!)
+  expect(collapse()).toBeNull()
+  fireEvent.click(group)
+  expect(screen.getByRole('button', { name: /echo a succeeded/ }).getAttribute('aria-expanded')).toBe('false')
 })
 
 it('uses two disclosure levels, keeps active rows visible, and preserves individual expansion across collapse/growth', () => {

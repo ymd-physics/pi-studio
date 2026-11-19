@@ -99,7 +99,7 @@ export class DesktopService {
     } catch {
       /* first launch */
     }
-    if (!['default', 'serif'].includes(this.preferences.font!)) this.preferences.font = 'default'
+    if (!['default', 'serif', 'literary'].includes(this.preferences.font!)) this.preferences.font = 'default'
     if (this.preferences.language !== 'zh-CN') this.preferences.language = 'en'
     if (!isTheme(this.preferences.theme) && this.preferences.theme !== 'system') this.preferences.theme = 'system'
     for (const key of ['dayTheme', 'nightTheme', 'fixedTheme'] as const) if (!isTheme(this.preferences[key])) delete this.preferences[key]
@@ -151,7 +151,7 @@ export class DesktopService {
         this.preferences.theme = patch.theme
       }
       for (const key of ['dayTheme', 'nightTheme'] as const) if (isTheme(patch[key])) this.preferences[key] = patch[key]
-      if (['default', 'serif'].includes(patch.font!)) this.preferences.font = patch.font!
+      if (['default', 'serif', 'literary'].includes(patch.font!)) this.preferences.font = patch.font!
       if (typeof patch.enterToSend === 'boolean') this.preferences.enterToSend = patch.enterToSend
       return this.persist()
     })
@@ -247,9 +247,12 @@ export class DesktopService {
     session.queue = next.catch(() => {})
     return next
   }
-  async sessions(workspace: string): Promise<SessionInfo[]> {
+  async sessions(workspace: string, query?: string): Promise<SessionInfo[]> {
     this.authorize(workspace)
     const disk = await this.sdk.SessionManager.list(workspace, this.sessionDirectory(workspace))
+    const term = query?.trim().toLowerCase()
+    const bodies = new Map<string, string>()
+    if (term) for (const item of disk) bodies.set(item.path, item.allMessagesText || item.firstMessage || '')
     const result: SessionInfo[] = disk.map((s: any) => ({
       id: s.id,
       path: s.path,
@@ -278,7 +281,17 @@ export class DesktopService {
         result.push(entry)
       }
       Object.assign(entry, { handle: live.handle, status: this.status(live) })
+      if (term) {
+        const text = live.snapshot.messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => typeof m.content === 'string' ? m.content : m.content?.filter(b => b.type === 'text').map(b => b.text).join(' ')).join('\n')
+        if (text) bodies.set(path, `${bodies.get(path) || ''}\n${text}`)
+      }
     }
+    if (term) return result.filter(s => {
+      const body = bodies.get(s.path) || s.firstMessage || ''
+      const at = body.toLowerCase().indexOf(term)
+      if (at >= 0) s.matchSnippet = body.slice(Math.max(0, at - 35), at + term.length + 70)
+      return at >= 0 || (s.name || '').toLowerCase().includes(term)
+    })
     return result
   }
   open(workspace: string, path?: string): Promise<Snapshot> {

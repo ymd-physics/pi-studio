@@ -46,6 +46,17 @@ async function fixture(demand?: (needed: boolean) => void) {
   return { service, dir, events, trash }
 }
 describe('DesktopService session pool', () => {
+  it('searches titles and archived message bodies without opening sessions', async () => {
+    const { service, dir } = await fixture()
+    const list = vi.fn(async () => [{ id:'a', path:join(dir,'a'), modified:0, firstMessage:'hello', name:'Thesis', allMessagesText:'hello later CODE example' }])
+    ;(service as any).sdk.SessionManager.list = list
+    expect(await service.sessions(dir, 'code')).toMatchObject([{ id:'a', matchSnippet:'hello later CODE example' }])
+    expect(await service.sessions(dir, 'thesis')).toHaveLength(1)
+    expect(await service.sessions(dir, 'missing')).toEqual([])
+    await expect(service.sessions(join(dir,'other'), 'code')).rejects.toThrow()
+    expect(list).toHaveBeenCalledTimes(3)
+    expect(native.processes).toHaveLength(0)
+  })
   it('tracks supported models across hidden sessions, snapshots, errors and shutdown', async () => {
     const demand = vi.fn()
     const { service, dir } = await fixture(demand)

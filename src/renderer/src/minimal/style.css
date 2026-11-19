@@ -32,6 +32,10 @@
   font-size: 14px;
 }
 /* pi-app's Claude preset serif stack: local fonts only, no proprietary font assets. */
+:root[data-font='literary'] {
+  --prose-font: Charter, 'Kaiti SC', STKaiti, KaiTi, 'Songti SC', serif;
+}
+.pp-dialog .pp-literary { font-family: var(--prose-font); }
 :root[data-font='serif'] {
   --prose-font: 'Tiempos Text', 'Source Serif 4', 'Source Serif Pro', 'Iowan Old Style', Georgia,
     'Noto Serif CJK SC', 'Noto Serif SC', 'Songti SC', STSong, serif;
@@ -475,11 +479,25 @@ textarea {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+.dialog.workspace-search { width:min(420px, 90vw); padding:14px 16px; border-radius:13px; color:var(--text); }
+.workspace-search header, .workspace-search label { display:flex; align-items:center; gap:8px; }
+.workspace-search header { justify-content:space-between; margin-bottom:5px; color:var(--muted); font-size:12px; }
+.dialog.workspace-search label { margin:0; padding:8px 0; border:0; border-bottom:1px solid var(--line); color:var(--muted); display:flex; }
+.workspace-search label:focus-within { border-color:var(--accent); }
+.dialog.workspace-search label input[type='search'] { flex:1; min-width:0; padding:2px 0; background:transparent; color:var(--text); font:inherit; border:0; border-radius:0; outline:none; }
+.workspace-search-results { max-height:45vh; overflow:auto; }
+.workspace-search-results button { display:grid; gap:3px; width:100%; padding:9px; text-align:start; color:var(--text); border:0; background:transparent; border-radius:6px; }
+.workspace-search-results button:hover { background:var(--hover); }
+.workspace-search-results button > span, .workspace-search-results small { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.workspace-search-results button > span { font-size:14px; font-weight:400; }
+.workspace-search-results small { font-size:11px; }
+.workspace-search-results mark { color:inherit; background:var(--accent-soft); border-radius:2px; }
+.workspace-search-results small, .workspace-search p { color:var(--muted); }
 .attachment-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 12px 14px 0;
+  padding: 12px 14px 8px;
 }
 .drop-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 0 14px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); }
 .drop-file, .drop-actions, .path-reference { display: inline-flex; align-items: center; }
@@ -947,6 +965,22 @@ button.context-toggle:active {
   font-size: 12px;
   padding: 10px 15px;
 }
+.conversation-find {
+  position:absolute; z-index:3; top:10px; right:14px;
+  width: min(340px, calc(100% - 28px)); box-sizing:border-box;
+  display:flex; align-items:center; gap:3px; padding:4px 5px 4px 11px;
+  background:var(--surface); color:var(--muted); border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 2px 8px rgb(0 0 0 / 7%);
+}
+.conversation-find:focus-within { border-color:color-mix(in srgb,var(--accent) 48%,var(--line)); }
+.conversation-find > svg { flex:none; }
+.conversation-find input { flex:1; min-width:0; padding:3px 4px; background:transparent; color:var(--text); border:0; font:inherit; font-size:13px; }
+.conversation-find input:focus-visible { outline:none; }
+.conversation-find small { white-space:nowrap; font-size:11px; font-variant-numeric:tabular-nums; padding-inline:3px; }
+.conversation-find button { display:grid; place-items:center; flex:0 0 24px; height:24px; padding:0; background:transparent; color:inherit; border:0; border-radius:5px; }
+.conversation-find button:enabled:hover { background:var(--hover); color:var(--text); }
+.conversation-find button:disabled { opacity:.4; }
+.message[data-find-current] { outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
 .conversation-wrap {
   flex: 1;
   min-height: 0;
@@ -1640,6 +1674,10 @@ button.context-toggle:active {
   font-size: 12px;
   color: var(--muted);
 }
+/* Keep the control beside the 780px reading column, not at the window edge. */
+.collapse-disclosures.icon-button { position:absolute; right:max(10px, calc(50% - 436px)); top:38%; width:34px; height:34px; border-radius:9px; background:var(--sidebar); color:var(--muted); }
+.collapse-disclosures span { position:absolute; top:100%; right:0; margin-top:4px; white-space:nowrap; font-size:11px; background:var(--surface); border-radius:4px; padding:1px 4px; visibility:hidden; pointer-events:none; }
+.collapse-disclosures:is(:hover,:focus-visible) span { visibility:visible; }
 .jump-bottom {
   position: absolute;
   bottom: 15px;

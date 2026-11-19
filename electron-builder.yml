@@ -4,6 +4,11 @@ directories:
   output: dist
 files:
   - out/**
+  # Vite already bundles these renderer libraries. Omit only duplicate JS/maps,
+  # not notices, fonts, native dependencies or generated renderer assets.
+  - '!node_modules/lucide-react/**/*.{js,mjs,map}'
+  - '!node_modules/react-dom/{cjs,umd}/**/*.{js,map}'
+  - '!node_modules/@shikijs/*/dist/**/*.{js,mjs,map}'
   - package.json
   - LICENSE
   - resources/pi-deepseek-tui-LICENSE

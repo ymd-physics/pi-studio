@@ -12,6 +12,7 @@ import {
   Circle,
   LoaderCircle,
   MessageCircleMore,
+  Search,
   Pencil,
   GitFork,
   Copy,
@@ -36,6 +37,7 @@ import { TerminalNameDialog } from './TerminalNameDialog'
 import type { TerminalInfo } from '../../../../packages/shared/terminal'
 import { Files } from './Files'
 import { PreferencesPanel } from './PreferencesPanel'
+import { WorkspaceSearch } from './WorkspaceSearch'
 import { WorkspaceInfo } from './WorkspaceInfo'
 import { ResizeEdge, usePanelWidths } from './ResizeEdge'
 import type { CodexUsageSnapshot } from '../../../../packages/shared/codex-usage'
@@ -94,6 +96,7 @@ export function App() {
     })
   const [dirty, setDirty] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [workspaceSearch, setWorkspaceSearch] = useState<Workspace>()
   const [workspaceInfo, setWorkspaceInfo] = useState<Workspace>()
   const loadGlobalPlugins = useCallback(() => window.desktop.plugins(), [])
   const loadWorkspacePlugins = useCallback(() => window.desktop.plugins(workspaceInfo!.path), [workspaceInfo?.path])
@@ -284,7 +287,7 @@ export function App() {
     return () => media.removeEventListener('change', update)
   }, [preferences?.theme, preferences?.dayTheme, preferences?.nightTheme])
   useEffect(() => {
-    document.documentElement.dataset.font = preferences?.font === 'serif' ? 'serif' : 'default'
+    document.documentElement.dataset.font = preferences?.font || 'default'
   }, [preferences?.font])
   useEffect(() => {
     void window.desktop.documentDirty(dirty).catch(showError)
@@ -494,6 +497,8 @@ export function App() {
                         {waitingSessions}
                       </span>
                     )}
+                    <button className="icon-button workspace-secondary-action" title={t('Search sessions in {name}', { name: workspace.name })}
+                      aria-label={t('Search sessions in {name}', { name: workspace.name })} onClick={() => setWorkspaceSearch(workspace)}><Search size={14} /></button>
                     <button
                       className="icon-button workspace-secondary-action"
                       aria-label={t('Workspace information for {name}', { name: workspace.name })}
@@ -811,6 +816,7 @@ export function App() {
         preferences={preferences} runtime={runtime} onChange={(patch) => void updatePreferences(patch)}
         onClose={() => setSettings(false)} loadPlugins={loadGlobalPlugins}
       />}
+      {workspaceSearch && <WorkspaceSearch workspace={workspaceSearch} close={() => setWorkspaceSearch(undefined)} open={async path => { if (await navigate(workspaceSearch.path, path)) setWorkspaceSearch(undefined) }} />}
       {workspaceInfo && <WorkspaceInfo key={workspaceInfo.path} workspace={preferences?.workspaces.find((workspace) => workspace.path === workspaceInfo.path) || workspaceInfo}
         onClose={() => setWorkspaceInfo(undefined)} loadPlugins={loadWorkspacePlugins}
         onRename={async (name) => { const next = await window.desktop.renameWorkspace(workspaceInfo.path, name); setPreferences(next); prefs.current = next }}

@@ -3,6 +3,10 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import {
   ArrowDown,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Search,
+  X,
   Layers,
   Check,
   CircleAlert,
@@ -394,6 +398,42 @@ export const Conversation = memo(
     }, [messages, activity.tools])
     // Paginate projected rows rather than cutting through a tool group or orphaning results.
     const rows = useMemo(() => projectTranscript(messages), [messages])
+    const [finding, setFinding] = useState(false)
+    const [query, setQuery] = useState('')
+    const [cursor, setCursor] = useState(0)
+    const field = useRef<HTMLInputElement>(null)
+    const previousFocus = useRef<HTMLElement | null>(null)
+    const hits = useMemo(() => {
+      const term = query.trim().toLowerCase()
+      if (!active || !finding || !term) return []
+      return rows.flatMap((row, index) => {
+        const text = row.kind === 'text' ? row.text : row.kind === 'message' && row.message.role === 'user'
+          ? userMessageView(row.message).text : row.kind === 'message' && row.message.role === 'assistant' ? messageText(row.message) : ''
+        return text?.toLowerCase().includes(term) ? [index] : []
+      })
+    }, [rows, active, finding, query])
+    const position = Math.min(cursor, Math.max(0, hits.length - 1))
+    const hit = hits[position]
+    const hitKey = rows[hit]?.key
+    const step = (delta: number) => { if (hits.length) setCursor((position + delta + hits.length) % hits.length) }
+    const closeFind = () => { setFinding(false); previousFocus.current?.focus({ preventScroll: true }) }
+    useEffect(() => {
+      if (!active) return
+      const open = (e: KeyboardEvent) => {
+        if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'f' || document.querySelector('[aria-modal="true"],dialog[open]')) return
+        e.preventDefault()
+        if (!field.current) previousFocus.current = document.activeElement as HTMLElement
+        setFinding(true); field.current?.focus(); field.current?.select()
+      }
+      window.addEventListener('keydown', open)
+      return () => window.removeEventListener('keydown', open)
+    }, [active])
+    useEffect(() => {
+      if (hitKey === undefined) return
+      follow.current = false
+      if (rows.length - hit > visible) { setVisible(rows.length - hit); return }
+      scroll.current?.querySelector('[data-find-current]')?.scrollIntoView?.({ block: 'center' })
+    }, [hitKey, hit, visible, rows.length])
     const requestIds = useMemo(() => new Set(messages.flatMap(message => { const request = supervisorRequest(message); return request ? [request.requestId] : [] })), [messages])
     const [localNavigation, setLocalNavigation] = useState<{ requestId: string; sequence: number }>()
     const navigateRequest = (requestId: string) => setLocalNavigation(old => ({ requestId, sequence: (old?.sequence ?? 0) + 1 }))
@@ -417,6 +457,18 @@ export const Conversation = memo(
       <ActiveSurface.Provider value={active}>
         <Disclosures.Provider value={disclosures}>
           <div className="conversation-wrap">
+            {finding && active && <div className="conversation-find" role="search" onKeyDown={e => {
+              if (e.nativeEvent.isComposing) return
+              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeFind() }
+              if (e.key === 'Enter' && e.target === field.current) { e.preventDefault(); step(e.shiftKey ? -1 : 1) }
+            }}>
+              <Search size={15} aria-hidden="true" />
+              <input autoFocus ref={field} value={query} placeholder={t('Find in conversation')} aria-label={t('Find in conversation')} onChange={e => { setQuery(e.target.value); setCursor(0) }} />
+              <small role="status">{query.trim() && (hits.length ? `${position + 1} / ${hits.length}` : t('No matching messages'))}</small>
+              <button disabled={!hits.length} aria-label={t('Previous result')} onClick={() => step(-1)}><ChevronUp size={15} /></button>
+              <button disabled={!hits.length} aria-label={t('Next result')} onClick={() => step(1)}><ChevronDown size={15} /></button>
+              <button aria-label={t('Close search')} onClick={closeFind}><X size={14} /></button>
+            </div>}
             <div
               ref={scroll}
               className="conversation"
@@ -460,7 +512,7 @@ export const Conversation = memo(
                   if (row.kind === 'tool') return null
                   if (row.kind === 'text')
                     return (
-                      <article className="message assistant-message" key={row.key}>
+                      <article className="message assistant-message" data-find-current={row.key === hitKey || undefined} key={row.key}>
                         <Document text={row.text} />
                       </article>
                     )
@@ -523,6 +575,7 @@ export const Conversation = memo(
                   return (
                     <article
                       key={row.key}
+                      data-find-current={row.key === hitKey || undefined}
                       className={`message ${user ? 'user-message' : 'assistant-message'}`}
                     >
                       {text && (user ? <div className="user-bubble">{text}</div> : <Document text={text} />)}
@@ -550,6 +603,14 @@ export const Conversation = memo(
                 )}
               </div>
             </div>
+            {active && Object.values(expanded).some(Boolean) && (
+              <button className="collapse-disclosures icon-button" aria-label={t('Collapse all details')} onClick={() => {
+                setExpanded({}); scroll.current?.focus({ preventScroll: true })
+              }}>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 4h12v8H4zM5.5 14.5h9M7 17h6" /></svg>
+                <span aria-hidden="true">{t('Collapse all details')}</span>
+              </button>
+            )}
             {away && (
               <button
                 className="jump-bottom icon-button"

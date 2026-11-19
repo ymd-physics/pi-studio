@@ -36,6 +36,13 @@ test('workspace file menus, native clipboard and image/file attachments', async 
     await expect(input).toHaveValue('Draf')
     await input.press('Meta+Shift+z')
     await expect(input).toHaveValue('Draft')
+    // Editor metadata alongside plain text must not cancel the native paste transaction.
+    expect(await input.evaluate(el => {
+      const data = new DataTransfer()
+      data.setData('text/plain', 'const answer = 42')
+      data.setData('vscode-editor-data', JSON.stringify({ mode: 'typescript' }))
+      return el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+    })).toBe(true)
     await input.press('Meta+a')
     await app.evaluate(({ clipboard }) => clipboard.writeText('替换文本'))
     await input.press('Meta+v')

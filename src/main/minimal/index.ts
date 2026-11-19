@@ -198,7 +198,7 @@ else {
           if (choice.response !== 1) return service.preferences
           return terminalService().removeWorkspace(path, () => service.removeWorkspace(path, true))
         },
-        sessions: (workspace) => service.sessions(workspace),
+        sessions: (workspace, query) => service.sessions(workspace, query),
         open: (workspace, session) => service.open(workspace, session),
         deleteSession: async (workspace, path) => {
           const choice = await dialog.showMessageBox(window!, {

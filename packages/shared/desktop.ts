@@ -56,6 +56,7 @@ export interface RunningSession {
   status: SessionStatus
 }
 export interface SessionInfo {
+  matchSnippet?: string
   status?: SessionStatus
   handle?: string
   id: string
@@ -78,7 +79,7 @@ export interface Preferences {
   fixedTheme?: import('./themes').Theme
   dayTheme?: import('./themes').Theme
   nightTheme?: import('./themes').Theme
-  font?: 'default' | 'serif'
+  font?: 'default' | 'serif' | 'literary'
   enterToSend: boolean
   /** Automatic follows AI body size; explicit sizes are shared across temporary terminals. */
   terminalFontSize?: number | 'auto'
@@ -131,7 +132,7 @@ export interface DesktopAPI {
   addWorkspace(): Promise<Preferences>
   renameWorkspace(path: string, name: string): Promise<Preferences>
   removeWorkspace(path: string): Promise<Preferences>
-  sessions(workspace: string): Promise<SessionInfo[]>
+  sessions(workspace: string, query?: string): Promise<SessionInfo[]>
   open(workspace: string, session?: string): Promise<Snapshot>
   deleteSession(workspace: string, session: string): Promise<boolean>
   codexUsage(): Promise<CodexUsageSnapshot>
