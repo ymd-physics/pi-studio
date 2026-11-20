@@ -31,14 +31,22 @@
   background: var(--canvas);
   font-size: 14px;
 }
-/* pi-app's Claude preset serif stack: local fonts only, no proprietary font assets. */
-:root[data-font='literary'] {
-  --prose-font: 'ChillHuoSong_F', Charter, 'Songti SC', STSong, serif;
+/* URL-only faces: both presets work offline, independently of installed fonts. */
+@font-face {
+  font-family: 'Studio Literary';
+  src: url('../fonts/StudioLiterary-Regular.woff2') format('woff2');
+  font-display: swap;
 }
-.pp-dialog .pp-literary { font-family: var(--prose-font); }
+@font-face {
+  font-family: 'Studio Serif';
+  src: url('../fonts/SourceHanSerifCN-Regular.woff2') format('woff2');
+  font-display: swap;
+}
+:root[data-font='literary'] {
+  --prose-font: 'Studio Literary', 'Studio Serif', serif;
+}
 :root[data-font='serif'] {
-  --prose-font: 'Tiempos Text', 'Source Serif 4', 'Source Serif Pro', 'Iowan Old Style', Georgia,
-    'Noto Serif CJK SC', 'Noto Serif SC', 'Songti SC', STSong, serif;
+  --prose-font: 'Studio Serif', serif;
 }
 .font-setting {
   display: flex;

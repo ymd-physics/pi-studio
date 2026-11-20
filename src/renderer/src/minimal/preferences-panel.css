@@ -44,7 +44,7 @@
 .pp-dialog .pp-theme-period .pp-mini { height:38px; }
 .pp-dialog .pp-choice { display: block; width: 100%; padding: 13px; margin-bottom: 9px; }
 .pp-dialog .pp-font-preview { padding: 20px; margin-top: 16px; border-radius: 10px; background: var(--sidebar); font: 17px/1.8 var(--font); }
-.pp-dialog .pp-serif { font-family: 'Tiempos Text', 'Source Serif 4', 'Iowan Old Style', Georgia, 'Noto Serif CJK SC', 'Songti SC', STSong, serif; }
+.pp-dialog .pp-serif, .pp-dialog .pp-literary { font-family: var(--prose-font); }
 .pp-dialog .pp-plugin { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .pp-dialog .pp-plugin-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .pp-dialog .pp-badge { background: var(--accent-soft); color: var(--accent-text); padding: 2px 5px; border-radius: 4px; font-size: 9px; }

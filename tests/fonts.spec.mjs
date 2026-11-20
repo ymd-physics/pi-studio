@@ -25,6 +25,20 @@ test('font preset previews immediately, preserves code/math/UI fonts, and surviv
           toolbar: font('.code-toolbar'),
         }
       })
+    // Check the actual glyph sources, not just CSS family names (which can silently fall back).
+    const checkPreview = async (postScriptName) => {
+      await page.evaluate(() => document.fonts.ready.then(() => true))
+      const cdp = await page.context().newCDPSession(page)
+      try {
+        await cdp.send('DOM.enable'); await cdp.send('CSS.enable')
+        const { root } = await cdp.send('DOM.getDocument')
+        for (const lang of ['en', 'zh-CN']) {
+          const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: `.pp-font-preview [lang="${lang}"]` })
+          const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId })
+          expect(fonts.filter(f => f.glyphCount > 0).map(f => [f.postScriptName, f.isCustomFont])).toEqual([[postScriptName, true]])
+        }
+      } finally { await cdp.detach() }
+    }
     const original = await fonts()
     await page.getByRole('button', { name: 'Preferences', exact: true }).click()
     await page.getByRole('button', { name: /^Font/ }).click()
@@ -32,11 +46,9 @@ test('font preset previews immediately, preserves code/math/UI fonts, and surviv
     await expect(page.getByLabel('Font preview')).toContainText('给想法留一点空间。')
     await page.getByRole('button', { name: 'Serif', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-font', 'serif')
-    expect(await page.getByLabel('Font preview').evaluate((el) => getComputedStyle(el).fontFamily)).toContain(
-      'Iowan Old Style',
-    )
+    await checkPreview('SourceHanSerifCN-Regular')
     const selected = await fonts()
-    expect(selected.prose).toContain('Iowan Old Style')
+    expect(selected.prose).toContain('Studio Serif')
     expect(selected.prose).not.toBe(original.prose)
     for (const key of ['code', 'math', 'ui', 'toolbar']) expect(selected[key]).toBe(original[key])
     await page.screenshot({ path: 'test-results/font-preferences.png' })
@@ -62,8 +74,8 @@ test('font preset previews immediately, preserves code/math/UI fonts, and surviv
     await page.getByRole('button', { name: 'Literary', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-font', 'literary')
     const literary = await fonts()
-    expect(literary.prose.split(',')[0]).toContain('ChillHuoSong_F')
-    expect(literary.prose).toContain('Charter')
+    await checkPreview('StudioLiterary-Regular')
+    expect(literary.prose.split(',')[0]).toContain('Studio Literary')
     for (const key of ['code', 'math', 'ui', 'toolbar']) expect(literary[key]).toBe(original[key])
     await page.getByRole('button', { name: 'Default', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-font', 'default')

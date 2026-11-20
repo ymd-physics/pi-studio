@@ -11,6 +11,7 @@ files:
   - '!node_modules/@shikijs/*/dist/**/*.{js,mjs,map}'
   - package.json
   - LICENSE
+  - src/renderer/src/fonts/OFL.txt
   - resources/pi-deepseek-tui-LICENSE
   - resources/desktop-session-guard.mjs
   - resources/desktop-rpc.mjs
