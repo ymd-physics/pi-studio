@@ -284,17 +284,21 @@ export class ActivityTracker {
         this.turn &&
         this.run
       ) {
-        this.turn.first ??= now
+        const wall = Date.now()
+        const arrival = (stamp: unknown) => typeof stamp === 'number' ? Math.max(this.turn!.started, now - Math.max(0, wall-stamp)) : now
+        const first = arrival(event.desktopFirstDelta), last = arrival(event.desktopLastDelta)
+        this.turn.first ??= first
         this.run.ttftMs ??= this.turn.first - this.turn.started
         if (this.turn.lastDelta !== undefined) {
-          const gap = now - this.turn.lastDelta
+          const gap = first - this.turn.lastDelta
           if (gap >= 1000) {
             this.run.stallMs += gap
             if (!this.turn.inStall) this.run.stallCount++
             this.turn.inStall = true
           } else this.turn.inStall = false
         }
-        this.turn.lastDelta = now
+        if (last > first) this.turn.inStall = false
+        this.turn.lastDelta = last
       }
       if (event.type === 'message_end' && this.run && !this.seen.has(key)) {
         this.seen.add(key)

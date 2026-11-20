@@ -120,12 +120,13 @@ export interface FileEntry {
 // Extension/event payloads are versioned by the installed Pi, not this app.
 export type PiRecord = { type: string; [key: string]: any }
 export interface DesktopAPI {
+  enterBubble(): Promise<void>
   checkUpdate(): Promise<import('./updates').UpdateInfo>
   downloadUpdate(version: string): Promise<'saved' | 'canceled'>
   boot(): Promise<{ preferences: Preferences; runtime: string }>
   preferences(patch: Partial<Pick<Preferences, 'theme' | 'dayTheme' | 'nightTheme' | 'font' | 'enterToSend' | 'language' | 'terminalFontSize'>>): Promise<Preferences>
   terminals(): Promise<TerminalInfo[]>
-  createTerminal(workspace: string): Promise<TerminalInfo>
+  createTerminal(workspace: string, directory?: string): Promise<TerminalInfo>
   renameTerminal(id: string, name: string): Promise<void>
   closeTerminal(id: string): Promise<boolean>
   terminal: TerminalTransport
@@ -150,6 +151,7 @@ export interface DesktopAPI {
   pasteAttachments(handle: string): Promise<Attachment[]>
   discardAttachment(handle: string, id: string): Promise<void>
   pathForFile(file: File): string
+  openFileExternally(handle: string, path: string): Promise<void>
   copyFile(handle: string, path: string): Promise<void>
   copyIntoWorkspace(workspace: string, directory: string, paths: string[]): Promise<void>
   pasteFiles(handle: string, directory: string): Promise<void>

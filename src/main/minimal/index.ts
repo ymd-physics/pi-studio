@@ -15,6 +15,9 @@ import { imageThumbnail } from './image-thumbnail'
 import type { Attachment, AttachmentInput } from '../../../packages/shared/assets'
 
 const here = dirname(fileURLToPath(import.meta.url))
+import { HiddenStream } from './hidden-stream'
+import { BubbleWindow } from './bubble-window'
+let bubble: BubbleWindow | undefined
 let window: BrowserWindow | undefined
 const t = (text: string) => uiText(service?.preferences.language)(text)
 let service: DesktopService
@@ -57,10 +60,14 @@ else {
           { role: 'windowMenu' },
         ]),
       )
+      const presentation = new HiddenStream(record => {
+        if (window && !window.isDestroyed()) window.webContents.send('pi:event',record)
+      })
       service = new DesktopService(
         app.getPath('userData'),
         (record) => {
-          if (window && !window.isDestroyed()) window.webContents.send('pi:event', record)
+          presentation.push(record)
+          if(record.type==='desktop_sessions_changed' || (record.type==='extension_ui_request' && ['confirm','select','input','editor'].includes(record.method))) bubble?.changed()
         },
         (path) => shell.trashItem(path),
         (needed) => {
@@ -113,6 +120,7 @@ else {
       let offered: Awaited<ReturnType<typeof checkRelease>>['asset']
       let downloading = false
       const handlers: Record<string, (...args: any[]) => any> = {
+        enterBubble: () => bubble?.enter(),
         boot: () =>
           (boot ||= service
             .boot()
@@ -143,7 +151,7 @@ else {
         plugins: (workspace) => service.plugins(workspace),
         preferences: (patch) => service.updatePreferences(patch || {}),
         terminals: () => terminals?.list() || [],
-        createTerminal: (workspace) => terminalService().create(workspace),
+        createTerminal: (workspace, directory) => terminalService().create(workspace, undefined, undefined, directory),
         renameTerminal: (id, name) => terminalService().rename(id, name),
         closeTerminal: async (id) => {
           const info = terminalService().list().find((item) => item.id === id)
@@ -236,6 +244,10 @@ else {
             )
           const image = clipboard.readImage()
           return image.isEmpty() ? [] : attach(handle, [{ name: 'pasted-image.png', bytes: image.toPNG() }])
+        },
+        openFileExternally: async (handle, path) => {
+          const error = await shell.openPath(await service.filePath(handle, path))
+          if (error) throw new Error(error)
         },
         copyFile: async (handle, path) => copyFilePaths([await service.filePath(handle, path)]),
         copyIntoWorkspace: (workspace, directory, paths) =>
@@ -341,7 +353,10 @@ else {
           webSecurity: true,
         },
       })
+      bubble=new BubbleWindow(window,service,here,paused=>paused?presentation.pause():presentation.resume())
+      app.on('activate',()=>bubble?.activate())
       window.webContents.on('render-process-gone', () => {
+        bubble?.restore()
         const previous = terminals
         terminals = undefined
         if (!previous) return
@@ -382,6 +397,7 @@ else {
     event.preventDefault()
     if (checkingQuit) return
     checkingQuit = true
+    bubble?.restore()
     void (async () => {
       if (window && !window.isDestroyed()) {
         const choice = await dialog.showMessageBox(window, {

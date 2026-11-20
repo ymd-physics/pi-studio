@@ -4,6 +4,8 @@ import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { isTheme } from '../../../packages/shared/themes'
 import type { Preferences, PiRecord, Snapshot, SessionInfo } from '../../../packages/shared/desktop'
+import type { BubbleState, BubbleChoice } from '../../../packages/shared/bubble'
+import { stripAnsi } from '../../../packages/shared/ansi'
 import { discoverPi, loadSessionManager, type PiInstallation } from './runtime'
 import { PiProcess } from './rpc'
 import { projectTodos } from '../../../packages/shared/todo-state'
@@ -101,6 +103,11 @@ export class DesktopService {
     }
     if (!['default', 'serif', 'literary'].includes(this.preferences.font!)) this.preferences.font = 'default'
     if (this.preferences.language !== 'zh-CN') this.preferences.language = 'en'
+    for (const key of ['theme', 'fixedTheme', 'dayTheme', 'nightTheme'] as const) {
+      const saved: unknown = this.preferences[key]
+      if (saved === 'paper') this.preferences[key] = 'light'
+      if (saved === 'dusk') this.preferences[key] = 'dark'
+    }
     if (!isTheme(this.preferences.theme) && this.preferences.theme !== 'system') this.preferences.theme = 'system'
     for (const key of ['dayTheme', 'nightTheme', 'fixedTheme'] as const) if (!isTheme(this.preferences[key])) delete this.preferences[key]
     const terminalSize = this.preferences.terminalFontSize
@@ -225,6 +232,24 @@ export class DesktopService {
       path: s.snapshot.state.sessionFile,
       status: this.status(s),
     }))
+  }
+  bubbleState(): BubbleState {
+    return { language: this.preferences.language || 'en', sessions: [...this.pool.values()].flatMap(s => {
+      const status = this.status(s)
+      if (status === 'inactive') return []
+      const req = s.pendingDialogs.values().next().value
+      const first = s.snapshot.messages.find(m => m.role === 'user')?.content
+      return [{handle:s.handle, epoch:s.epoch, status, workspace:this.preferences.workspaces.find(w=>w.path===s.snapshot.workspace)?.name || basename(s.snapshot.workspace),
+        name:s.snapshot.state.sessionName || (typeof first==='string'?first:first?.find(b=>b.type==='text')?.text || '').slice(0,80),
+        request:req && {id:req.id, method:req.method, title:stripAnsi(String(req.title || '')), message:stripAnsi(String(req.message || '')), options:Array.isArray(req.options)?req.options.map(String):[]}}]
+    })}
+  }
+  async answerBubble(c: BubbleChoice) {
+    const s=this.selected(c.handle), req=s.pendingDialogs.values().next().value
+    if(!req || s.epoch!==c.epoch || req.id!==c.id || (req.desktopExpiresAt && req.desktopExpiresAt<=Date.now())) throw new Error('This request has expired')
+    const fields=c.choice==='cancel'?{cancelled:true}:c.choice==='confirm' && req.method==='confirm'?{confirmed:true}:typeof c.choice==='number' && Number.isInteger(c.choice) && req.method==='select' && typeof req.options?.[c.choice]==='string'?{value:req.options[c.choice]}:undefined
+    if(!fields) throw new Error('Invalid response')
+    await this.respond({type:'extension_ui_response',desktopSession:s.handle,id:req.id,...fields})
   }
   private changed(session: LiveSession) {
     this.event({
@@ -715,14 +740,20 @@ export class DesktopService {
     const session = this.selected(record.desktopSession)
     if (!record.desktopSession || !session.rpc || !session.pendingDialogs.has(record.id))
       throw new Error('This extension dialog is no longer active')
-    await session.rpc.send({
+    const request=session.pendingDialogs.get(record.id)!, epoch=session.epoch
+    session.pendingDialogs.delete(record.id) // reserve before asynchronous write: only one window can answer
+    try { await session.rpc.send({
       type: 'extension_ui_response',
       id: record.id,
       value: typeof record.value === 'string' ? record.value : undefined,
       confirmed: record.confirmed === true,
       cancelled: record.cancelled === true,
     })
-    session.pendingDialogs.delete(record.id)
+    } catch(error) {
+      if(session.epoch===epoch && !session.pendingDialogs.has(record.id) && (!request.desktopExpiresAt || Date.now()<request.desktopExpiresAt)) session.pendingDialogs.set(record.id,request)
+      this.changed(session); throw error
+    }
+    this.event({type:'desktop_request_answered',desktopSession:session.handle,desktopEpoch:epoch,id:record.id})
     this.changed(session)
   }
   private async stop(session: LiveSession, remove = true) {

@@ -4,6 +4,20 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { Files } from './Files'
 vi.mock('./Markdown', () => ({ CodeBlock: () => null, Markdown: () => null }))
 afterEach(cleanup)
+it('starts a terminal in the selected folder or the parent of the selected file', async () => {
+  const openTerminal = vi.fn(async () => {})
+  window.desktop = { files: async (directory: string) => directory ? [{ name:'notes.md', path:'docs/notes.md', isDirectory:false }] : [{ name:'docs', path:'docs', isDirectory:true }] } as unknown as typeof window.desktop
+  render(<Files close={() => {}} onDirty={() => {}} openTerminal={openTerminal} />)
+  const folder = await screen.findByRole('button', {name:'docs'})
+  fireEvent.contextMenu(folder)
+  fireEvent.click(screen.getByRole('menuitem', {name:'New terminal here'}))
+  fireEvent.click(folder)
+  fireEvent.contextMenu(await screen.findByRole('button', {name:'notes.md'}))
+  fireEvent.click(screen.getByRole('menuitem', {name:'New terminal in containing folder'}))
+  fireEvent.contextMenu(screen.getByRole('button', {name:'notes.md'}).parentElement!)
+  fireEvent.click(screen.getByRole('menuitem', {name:'New terminal here'}))
+  expect(openTerminal.mock.calls).toEqual([['docs'], ['docs'], ['docs']])
+})
 it('ignores a stale file read after a newer selection has been edited', async () => {
   const deferred: Record<string, (data: { content: string; revision: string }) => void> = {}
   window.desktop = {

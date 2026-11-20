@@ -1,3 +1,4 @@
+import { assetPath } from './workspace-assets'
 import { randomUUID } from 'node:crypto'
 import { access, realpath, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
@@ -67,13 +68,13 @@ export class TerminalService {
     return canonical
   }
 
-  create(workspace: string, cols = 100, rows = 30): Promise<TerminalInfo> {
-    const promise = this.createSession(workspace, cols, rows)
+  create(workspace: string, cols = 100, rows = 30, directory = ''): Promise<TerminalInfo> {
+    const promise = this.createSession(workspace, cols, rows, directory)
     this.creates.add(promise)
     void promise.finally(() => this.creates.delete(promise)).catch(() => {})
     return promise
   }
-  private async createSession(workspace: string, cols: number, rows: number): Promise<TerminalInfo> {
+  private async createSession(workspace: string, cols: number, rows: number, directory: string): Promise<TerminalInfo> {
     if (this.stopped || this.sessions.size + this.creating >= 8) throw new Error('Terminal limit reached')
     if (!Number.isInteger(cols) || cols < 1 || cols > 1000 || !Number.isInteger(rows) || rows < 1 || rows > 1000) throw new Error('Invalid terminal dimensions')
     this.creating++
@@ -103,17 +104,19 @@ export class TerminalService {
         env.SHELL = file
         shell = { file, args: ['-l', '-i'], env, integrated: false, cleanup: async () => {} }
       }
+      const startDir = directory ? await assetPath(cwd, directory) : cwd
+      if (directory && !(await stat(startDir)).isDirectory()) throw new Error('Not a directory')
       await this.workspace(cwd)
       if ((await Promise.all(this.workspaceClosures)).includes(cwd)) throw new Error('Workspace is closing')
       if (this.stopped) throw new Error('Terminal service stopped')
       let earlyExit: { exitCode: number; signal?: number } | undefined
       let earlyData = ''
       process = (this.options.process || (options => new TerminalProcess(options)))({
-        file: shell.file, args: shell.args, cwd, env: shell.env, cols, rows,
+        file: shell.file, args: shell.args, cwd: startDir, env: shell.env, cols, rows,
         onData: data => { if (session) session.pump.push(data); else earlyData += data },
         onExit: event => { if (session) this.exited(session, event); else earlyExit = event },
       })
-      const info: TerminalInfo = { id, name: this.nextName(cwd), workspace: cwd, cwd, shell: shell.file, state: shell.integrated ? 'starting' : 'ready', mode: 'direct', ...(!shell.integrated ? { reason: 'Shell integration unavailable' } : {}) }
+      const info: TerminalInfo = { id, name: this.nextName(cwd), workspace: cwd, cwd: startDir, shell: shell.file, state: shell.integrated ? 'starting' : 'ready', mode: 'direct', ...(!shell.integrated ? { reason: 'Shell integration unavailable' } : {}) }
       const pump = new TerminalOutputPump(process, packet => this.emit({ type: 'desktop_terminal_output', id, ...packet }), () => {
         this.emit({ type: 'desktop_terminal_error', id, message: 'Terminal output failed' })
         void this.close(id).catch(() => {})

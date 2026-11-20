@@ -11,14 +11,14 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        input: resolve('src/preload/minimal.ts'),
-        output: { format: 'cjs', entryFileNames: 'index.cjs' },
+        input: { index: resolve('src/preload/minimal.ts'), bubble: resolve('src/preload/bubble.ts') },
+        output: { format: 'cjs', entryFileNames: '[name].cjs' },
       },
     },
   },
   renderer: {
     root: 'src/renderer',
     plugins: [react()],
-    build: { rollupOptions: { input: resolve('src/renderer/index.html') } },
+    build: { rollupOptions: { input: [resolve('src/renderer/index.html'), resolve('src/renderer/bubble.html')] } },
   },
 })

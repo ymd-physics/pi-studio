@@ -17,6 +17,7 @@ export interface TerminalViewProps {
   action?: { id: string; name: 'clear'; sequence: number }
   onError?(error: unknown): void
 }
+import { BubbleButton } from './BubbleButton'
 type Terminal = import('@xterm/xterm').Terminal
 type FitAddon = import('@xterm/addon-fit').FitAddon
 type Candidate = TerminalCompletion['options'][number]
@@ -348,7 +349,7 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
     <header className="topbar terminal-view__header">
       <button className="icon-button" onClick={toggleSidebar} aria-label={t("Toggle sidebar")} title={t("Toggle sidebar")}><PanelLeft size={18} /></button>
       <div className="breadcrumbs"><span>{title}</span><ChevronRight size={12} /><strong title={info.name}>{info.name}</strong></div>
-      <div className="header-actions terminal-view__header-actions">
+      <div className="header-actions terminal-view__header-actions"><BubbleButton />
         <div className="terminal-font-control" role="group" aria-label={t("Terminal font size")}>
           <button aria-label={t("Decrease terminal font size")} disabled={fontSize <= 10} onClick={() => onFontSizeChange(fontSize - 1)}>{t("A−")}</button>
           <button aria-label={t("Increase terminal font size")} disabled={fontSize >= 22} onClick={() => onFontSizeChange(fontSize + 1)}>{t("A+")}</button>

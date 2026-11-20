@@ -62,7 +62,7 @@ test('font preset previews immediately, preserves code/math/UI fonts, and surviv
     await page.getByRole('button', { name: 'Literary', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-font', 'literary')
     const literary = await fonts()
-    expect(literary.prose).toContain('Kaiti SC')
+    expect(literary.prose.split(',')[0]).toContain('ChillHuoSong_F')
     expect(literary.prose).toContain('Charter')
     for (const key of ['code', 'math', 'ui', 'toolbar']) expect(literary[key]).toBe(original[key])
     await page.getByRole('button', { name: 'Default', exact: true }).click()

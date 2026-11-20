@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { rename, rm } from 'node:fs/promises'
+import { open, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { projectUrl, type UpdateInfo } from '../../../packages/shared/updates'
@@ -31,6 +30,8 @@ export async function saveDmg(asset: Asset, path: string, fetcher: Fetch) {
   const res = await fetcher(asset.url, { credentials: 'omit', signal: AbortSignal.timeout(30 * 60 * 1000) })
   if (!res.ok || !res.body) throw new Error('Download failed')
   const tmp = join(dirname(path), `.pi-update-${randomUUID()}.part`)
+  // Open before reading: an immediate size failure must not race a pending open against cleanup.
+  const file = await open(tmp, 'wx', 0o600)
   try {
     const reader = res.body.getReader(), hash = createHash('sha256')
     let size = 0
@@ -46,8 +47,8 @@ export async function saveDmg(asset: Asset, path: string, fetcher: Fetch) {
         }
       } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
     }
-    await pipeline(chunks(), createWriteStream(tmp, { flags: 'wx', mode: 0o600 }))
+    await pipeline(chunks(), file.createWriteStream())
     if (size !== asset.size || `sha256:${hash.digest('hex')}` !== asset.digest) throw new Error('DMG verification failed')
     await rename(tmp, path)
-  } finally { await rm(tmp, { force: true }) }
+  } finally { await file.close(); await rm(tmp, { force: true }) }
 }

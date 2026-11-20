@@ -33,7 +33,7 @@
 }
 /* pi-app's Claude preset serif stack: local fonts only, no proprietary font assets. */
 :root[data-font='literary'] {
-  --prose-font: Charter, 'Kaiti SC', STKaiti, KaiTi, 'Songti SC', serif;
+  --prose-font: 'ChillHuoSong_F', Charter, 'Songti SC', STSong, serif;
 }
 .pp-dialog .pp-literary { font-family: var(--prose-font); }
 :root[data-font='serif'] {
@@ -86,11 +86,13 @@
   --control-shadow: 0 1px 2px #00000040, 0 4px 14px #00000059;
   --accent-shadow: 0 2px 6px rgba(122, 170, 255, 0.24), 0 8px 18px rgba(122, 170, 255, 0.18);
 }
-[data-theme='paper'], [data-palette='paper'] { --canvas:#faf8f4; --sidebar:#f0ede7; --text:#34312f; --muted:#6b655e; --line:#e0dcd5; --accent:#775f52; --accent-soft:#ebe3dc; }
 [data-theme='celadon'], [data-palette='celadon'] { --canvas:#f6f8f6; --sidebar:#e9efec; --text:#303b38; --muted:#5c6a64; --line:#d6dfda; --accent:#486e66; --accent-soft:#dfe9e5; }
-:root[data-theme='ocean'], [data-palette='ocean'] { --canvas:#181b18; --sidebar:#202520; --text:#e2e6dd; --muted:#afb5ad; --line:#383e37; --accent:#bac7a7; --accent-soft:#303930; }
-:root[data-theme='dusk'], [data-palette='dusk'] { --canvas:#201c1a; --sidebar:#282220; --text:#ede0d9; --muted:#bdb0a8; --line:#433934; --accent:#d4b3a5; --accent-soft:#39302b; }
-:root:is([data-theme='paper'],[data-theme='celadon'],[data-theme='ocean'],[data-theme='dusk']) { --surface:var(--canvas); --user:var(--sidebar); --hover:var(--accent-soft); --secondary:var(--muted); --accent-text:var(--accent); --accent-shadow:0 2px 8px color-mix(in srgb,var(--accent) 20%,transparent); }
+:root[data-theme='ocean'], [data-palette='ocean'] { --canvas:#101e31; --sidebar:#16283e; --text:#e2edf8; --muted:#a3b8cd; --line:#30475e; --accent:#cce9ff; --accent-soft:#253c53; }
+:root[data-theme='celadon'] .app { background:var(--canvas) url('./grove.svg') center / 100% 100% no-repeat; }
+:root[data-theme='celadon'] .sidebar { background:rgb(226 237 230 / 30%); }
+:root[data-theme='ocean'] .sidebar { background-image:url('./starfield-rail.svg'); background-size:100% 100%; background-repeat:no-repeat; }
+:root[data-theme='ocean'] .conversation-wrap { background-image:url('./starfield-field.svg'); background-size:100% 100%; background-repeat:no-repeat; }
+:root:is([data-theme='celadon'],[data-theme='ocean']) { --surface:var(--canvas); --user:var(--sidebar); --hover:var(--accent-soft); --secondary:var(--muted); --accent-text:var(--accent); --accent-shadow:0 2px 8px color-mix(in srgb,var(--accent) 20%,transparent); }
 * {
   box-sizing: border-box;
 }
@@ -2103,6 +2105,14 @@ button.context-toggle:active {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.file-crumbs { display:flex; align-items:center; min-width:0; gap:3px; }
+.file-crumbs button { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:2px; color:inherit; font:inherit; }
+.file-crumbs button:not(:first-child)::before { content:'› '; color:var(--muted); }
+.file-crumbs button:enabled:hover { color:var(--accent); }
+.file-crumbs select { max-width:3em; font:inherit; color:inherit; background:transparent; border:0; }
+.file-split { flex:none; height:9px; cursor:row-resize; touch-action:none; background:linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat; }
+.file-split:hover, .file-split:focus-visible { background-image:linear-gradient(var(--accent),var(--accent)); }
+.file-split + .file-document { border-top:0; }
 .file-document {
   display: flex;
   flex-direction: column;

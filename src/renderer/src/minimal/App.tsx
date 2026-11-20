@@ -35,6 +35,7 @@ import { SessionView, type SessionAction } from './SessionView'
 import { TerminalView } from './TerminalView'
 import { TerminalNameDialog } from './TerminalNameDialog'
 import type { TerminalInfo } from '../../../../packages/shared/terminal'
+import { BubbleButton } from './BubbleButton'
 import { Files } from './Files'
 import { PreferencesPanel } from './PreferencesPanel'
 import { WorkspaceSearch } from './WorkspaceSearch'
@@ -79,7 +80,7 @@ export function App() {
   const [sidebar, setSidebar] = useState(true)
   const [dropWorkspace, setDropWorkspace] = useState<string>()
   const [fileRevision, setFileRevision] = useState(0)
-  const [files, setFiles] = useState(false)
+  const [filePanels, setFilePanels] = useState<Record<string, boolean>>({})
   const [collapsed, setCollapsed] = useState<string[]>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('pi-collapsed-workspaces') || '[]')
@@ -94,7 +95,8 @@ export function App() {
       localStorage.setItem('pi-collapsed-workspaces', JSON.stringify(next))
       return next
     })
-  const [dirty, setDirty] = useState(false)
+  const [dirtyPanels, setDirtyPanels] = useState<Record<string, boolean>>({})
+  const dirty = Object.values(dirtyPanels).some(Boolean)
   const [settings, setSettings] = useState(false)
   const [workspaceSearch, setWorkspaceSearch] = useState<Workspace>()
   const [workspaceInfo, setWorkspaceInfo] = useState<Workspace>()
@@ -122,6 +124,7 @@ export function App() {
     selectedTerminal?.workspace || session?.workspace ||
     preferences?.workspaces.find((w) => w.path === preferences.activeWorkspace)?.path ||
     preferences?.workspaces[0]?.path
+  const files = !!session && !!filePanels[session.workspace]
   const widths = usePanelWidths(sidebar, files)
   useEffect(() => {
     if (!selected || !session || (!error && !notice)) return
@@ -171,7 +174,6 @@ export function App() {
   const navigate = useCallback(
     async (workspace: string, path?: string): Promise<Snapshot | undefined> => {
       if (navigating.current) return
-      if (dirty && !window.confirm(t('Discard unsaved file changes?'))) return
       navigating.current = true
       setOpeningKind('conversation')
       setLoading(true)
@@ -183,8 +185,6 @@ export function App() {
         const next = await window.desktop.open(workspace, path)
         setViews((old) => ({ ...old, [next.handle]: old[next.handle] || next }))
         setSelected(next.handle)
-        setFiles(false)
-        setDirty(false)
         setRunning(await window.desktop.runningSessions())
         await refreshSessions()
         return next
@@ -195,34 +195,30 @@ export function App() {
         setLoading(false)
       }
     },
-    [dirty, refreshSessions, showError, t],
+    [refreshSessions, showError],
   )
   const newConversation = useCallback(() => {
     if (!workspaceForNew || loading) return
     void navigate(workspaceForNew)
   }, [workspaceForNew, loading, navigate])
   const selectTerminal = (terminal: TerminalInfo) => {
-    if (navigating.current || (dirty && !window.confirm(t('Discard unsaved file changes?')))) return
+    if (navigating.current) return
     setSelected(`terminal:${terminal.id}`)
-    setFiles(false)
-    setDirty(false)
     setContext(undefined)
     setCreationMenu(undefined)
     setTerminalContext(undefined)
   }
-  const createTerminal = async (workspace: string) => {
-    if (navigating.current || (dirty && !window.confirm(t('Discard unsaved file changes?')))) return
+  const createTerminal = async (workspace: string, directory?: string) => {
+    if (navigating.current) return
     navigating.current = true
     setOpeningKind('terminal')
     setLoading(true)
     setError('')
     setCreationMenu(undefined)
     try {
-      const terminal = await window.desktop.createTerminal(workspace)
+      const terminal = directory ? await window.desktop.createTerminal(workspace, directory) : await window.desktop.createTerminal(workspace)
       await refreshTerminals()
       setSelected(`terminal:${terminal.id}`)
-      setFiles(false)
-      setDirty(false)
     } catch (error) { showError(error) }
     finally { navigating.current = false; setLoading(false) }
   }
@@ -234,6 +230,7 @@ export function App() {
   useEffect(() => {
     let alive = true
     const off = window.desktop.onEvent((event) => {
+      if (event.type === 'desktop_bubble_session') setSelected(event.desktopSession)
       if (event.type === 'desktop_codex_usage') setUsage(event.usage)
       if (event.type === 'desktop_terminal_sessions') {
         terminalRevision.current++
@@ -280,7 +277,7 @@ export function App() {
     const update = () => {
       const theme = resolveTheme(preferences?.theme, media.matches, preferences?.dayTheme, preferences?.nightTheme)
       document.documentElement.dataset.theme = theme
-      document.documentElement.classList.toggle('dark', ['dark', 'ocean', 'dusk'].includes(theme))
+      document.documentElement.classList.toggle('dark', ['dark', 'ocean'].includes(theme))
     }
     update()
     media.addEventListener('change', update)
@@ -368,8 +365,6 @@ export function App() {
     })
     if (selected === handle) {
       setSelected(undefined)
-      setFiles(false)
-      setDirty(false)
     }
   }
   const contextAction = async (name: string) => {
@@ -380,7 +375,6 @@ export function App() {
     const live = running.find((r) => r.path === item.path && r.workspace === workspace)
     if (['close', 'delete'].includes(name)) {
       if (name === 'close' && live?.status === 'working') return
-      if (live?.handle === selected && dirty && !window.confirm(t('Discard unsaved file changes?'))) return
       try {
         if (name === 'close') {
           if (!live) return
@@ -399,10 +393,7 @@ export function App() {
     if (next) setAction({ handle: next.handle, name, sequence: Date.now() })
   }
   const toggleFiles = () => {
-    if (!files || !dirty || window.confirm(t('Discard unsaved file changes?'))) {
-      setFiles(!files)
-      setDirty(false)
-    }
+    if (session) setFilePanels(old => ({...old, [session.workspace]: !old[session.workspace]}))
   }
   const currentLive =
     context && running.find((r) => r.workspace === context.workspace && r.path === context.item.path)
@@ -534,8 +525,7 @@ export function App() {
                       title={t('Remove {name}', { name: workspace.name })}
                       onClick={async () => {
                         if (
-                          dirty &&
-                          session?.workspace === workspace.path &&
+                          dirtyPanels[workspace.path] &&
                           !window.confirm(t('Discard unsaved file changes?'))
                         )
                           return
@@ -544,6 +534,8 @@ export function App() {
                           setPreferences(next)
                           prefs.current = next
                           if (next.workspaces.some((w) => w.path === workspace.path)) return // native confirmation cancelled
+                          setFilePanels(old => { const next={...old}; delete next[workspace.path]; return next })
+                          setDirtyPanels(old => { const next={...old}; delete next[workspace.path]; return next })
                           for (const live of running.filter((r) => r.workspace === workspace.path))
                             discardView(live.handle)
                           setRunning(await window.desktop.runningSessions())
@@ -711,7 +703,7 @@ export function App() {
                   >
                     <PanelLeft size={18} />
                   </button>
-                  <span className="muted">Pi Studio</span>
+                  <span className="muted">Pi Studio</span><div className="header-actions" style={{marginLeft:'auto'}}><BubbleButton /></div>
                 </header>
                 <div className="empty-state">
                   <span className="pi-hero">π</span>
@@ -736,24 +728,27 @@ export function App() {
               </>
             )}
           </div>
-          {files && session && (
-            <div className="file-panel-container" style={{ width: widths.right }}>
-              <ResizeEdge
+          {Object.keys(filePanels).map(workspace => {
+            const active = !!session && session.workspace === workspace && files
+            return <div key={workspace} className="file-panel-container" style={{ width: widths.right, display: active ? undefined : 'none' }}>
+              {active && <ResizeEdge
                 side="right"
                 value={widths.right}
                 min={widths.rightMin}
                 max={widths.rightMax}
                 change={widths.setRight}
-              />
+              />}
               <Files
-                key={session.handle}
-                handle={session.handle}
+                active={active}
+                handle={active ? session.handle : undefined}
                 refreshKey={fileRevision}
+                openTerminal={directory => createTerminal(workspace, directory)}
+                reference={active ? relative => setAction({ handle: session.handle, sequence: Date.now(), name: 'reference', path: `${workspace.replace(/[\\/]+$/, '')}/${relative}` }) : undefined}
                 close={toggleFiles}
-                onDirty={setDirty}
+                onDirty={value => setDirtyPanels(old => !!old[workspace] === value ? old : {...old,[workspace]:value})}
               />
             </div>
-          )}
+          })}
         </div>
       </main>
       {context && (

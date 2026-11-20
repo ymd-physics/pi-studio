@@ -23,7 +23,7 @@
 .pp-dialog strong { font-weight: 550; }
 .pp-dialog .pp-row strong { display: block; font-size: 13px; }
 .pp-dialog .pp-row small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
-.pp-dialog .pp-theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pp-dialog .pp-theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .pp-dialog .pp-theme-choice, .pp-dialog .pp-choice { border: 1px solid var(--line); border-radius: 9px; padding: 8px; text-align: left; }
 .pp-dialog button[aria-pressed=true] { border-color: var(--accent); }
 .pp-dialog .pp-mini { display: flex; height: 80px; border-radius: 5px; overflow: hidden; background: #fff; border: 1px solid #d8dce3; margin-bottom: 8px; }
@@ -33,13 +33,14 @@
 .pp-dialog .pp-mini-dark i { background: #28282d; border-color: #494950; }
 .pp-dialog .pp-mini-dark b { background: #52545d; }
 .pp-dialog .pp-mini:is(.pp-mini-paper,.pp-mini-celadon,.pp-mini-ocean,.pp-mini-dusk) { background:var(--canvas); border-color:var(--line); }
+.pp-dialog .pp-mini.pp-mini-celadon { background:var(--canvas) url('./grove.svg') center / 100% 100% no-repeat; }
 .pp-dialog .pp-mini:not(.pp-mini-light,.pp-mini-dark) i { background:var(--sidebar); border-color:var(--line); }
 .pp-dialog .pp-mini:not(.pp-mini-light,.pp-mini-dark) b { background:var(--accent); }
 .pp-modes { display:inline-flex; gap:2px; background:var(--sidebar); border:1px solid var(--line); padding:3px; border-radius:9px; margin-bottom:12px; }
 .pp-modes button[aria-pressed=true] { background:var(--surface); box-shadow:var(--shadow); }
 .pp-theme-period { min-width:0; margin:0 0 18px; border:0; padding:0; }
 .pp-theme-period legend { padding:0 0 8px; font-weight:600; }
-.pp-theme-period .pp-theme-grid { grid-template-columns:repeat(auto-fit,minmax(70px,1fr)); gap:6px; }
+.pp-theme-period .pp-theme-grid { gap:6px; }
 .pp-dialog .pp-theme-period .pp-mini { height:38px; }
 .pp-dialog .pp-choice { display: block; width: 100%; padding: 13px; margin-bottom: 9px; }
 .pp-dialog .pp-font-preview { padding: 20px; margin-top: 16px; border-radius: 10px; background: var(--sidebar); font: 17px/1.8 var(--font); }

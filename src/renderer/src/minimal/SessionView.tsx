@@ -1,5 +1,7 @@
 import { useUiText } from './language'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { BubbleButton } from './BubbleButton'
 import { Files as FilesIcon, PanelLeft, ChevronRight, X, MessageCircleMore } from 'lucide-react'
 import type { PiRecord, Preferences, Snapshot } from '../../../../packages/shared/desktop'
 import { stripAnsi } from '../../../../packages/shared/ansi'
@@ -21,7 +23,7 @@ import type { Attachment, AttachmentInput } from '../../../../packages/shared/as
 import type { CodexUsageSnapshot } from '../../../../packages/shared/codex-usage'
 import { supportsCodexFeatures } from '../../../../packages/shared/codex-model'
 
-export type SessionAction = { handle: string; name: string; sequence: number }
+export type SessionAction = { handle: string; name: string; sequence: number; path?: string }
 export function SessionView({
   initial,
   visible,
@@ -57,7 +59,10 @@ export function SessionView({
   const handle = initial.handle
   const markdownOrigin = useMemo(() => ({ handle }), [handle])
   const visibleRef = useRef(visible)
-  visibleRef.current = visible
+  const paused = useRef(false)
+  const [presentationPaused,setPresentationPaused] = useState(false)
+  const syncOnReturn = useRef(false)
+  visibleRef.current = visible && !paused.current
   const [session, setSession] = useState(initial)
   const [subagents, setSubagents] = useState(initial.subagents)
   const subagentRevision = useRef(0)
@@ -257,6 +262,7 @@ export function SessionView({
     [handle],
   )
   const sync = useCallback(async () => {
+    if (paused.current) { syncOnReturn.current = true; return }
     const subagentsAtRequest = subagentRevision.current
     const uiAtRequest = uiRevision.current,
       streamAtRequest = streamRevision.current,
@@ -266,6 +272,7 @@ export function SessionView({
     const sequence = ++syncSequence.current
     const next = await window.desktop.snapshot(handle)
     if (!alive.current || sequence !== syncSequence.current) return
+    if (paused.current) { syncOnReturn.current = true; return }
     if (lastFile.current !== next.state.sessionFile) {
       lastFile.current = next.state.sessionFile
       setNotices([])
@@ -290,7 +297,7 @@ export function SessionView({
     alive.current = true
     const ui = (event: PiRecord) => {
       uiRevision.current++
-      if (['select', 'confirm', 'input', 'editor'].includes(event.method))
+      if (!answered.current.has(event.id) && ['select', 'confirm', 'input', 'editor'].includes(event.method))
         setDialogs((queue) =>
           queue.some((r) => r.id === event.id)
             ? queue
@@ -344,6 +351,7 @@ export function SessionView({
     refreshVisibleTodo.current = () => {
       if (sessionRef.current.todo?.availability !== 'disabled') refreshTodo()
     }
+    let hiddenMessages: Snapshot['messages'] | undefined
     const batch = new EventBatch(
       (event) => {
         if (event.type === 'message_start' || event.type === 'message_end')
@@ -359,14 +367,16 @@ export function SessionView({
         if (event.type === 'tool_execution_end' && sessionRef.current.todo?.availability !== 'disabled') {
           refreshTodo()
         }
-        setActivity(tracker.current.view())
+        if (!paused.current) setActivity(tracker.current.view())
         if (event.type === 'message_end' && visibleRef.current && !contextTimer)
           contextTimer = setTimeout(() => {
             contextTimer = undefined
             if (alive.current) void refreshContext().catch(() => {})
           }, 200)
-        if (event.type.startsWith('message_'))
-          setSession((old) => ({ ...old, messages: applyMessageEvent(old.messages, event) }))
+        if (event.type.startsWith('message_')) {
+          if (paused.current) hiddenMessages = applyMessageEvent(hiddenMessages || sessionRef.current.messages,event)
+          else setSession((old) => ({ ...old, messages: applyMessageEvent(old.messages, event) }))
+        }
         if (event.type === 'agent_start' || event.type === 'compaction_start') setBusy(true)
         if (event.type === 'agent_settled') {
           setBusy(false)
@@ -396,7 +406,24 @@ export function SessionView({
       () => visibleRef.current,
     )
     const off = window.desktop.onEvent((event) => {
+      if (event.type === 'desktop_presentation') {
+        if (paused.current === event.paused) return
+        // Commit the pre-hide tail before taking the base for any hidden edits.
+        if (event.paused) flushSync(()=>batch.flush()); else batch.flush()
+        paused.current = !!event.paused
+        setPresentationPaused(paused.current)
+        if (paused.current) { clearTimeout(contextTimer); contextTimer=undefined; return }
+        const messages=hiddenMessages; hiddenMessages=undefined
+        if (messages) setSession(old=>({...old,messages}))
+        setActivity(tracker.current.view())
+        if (syncOnReturn.current) {syncOnReturn.current=false;void sync().catch(showError)}
+        // The effective-visibility effect refreshes todos after React commits the resume.
+        return
+      }
       if (event.desktopSession !== handle) return
+      if (event.type === 'desktop_request_answered') {
+        uiRevision.current++; answered.current.add(event.id); setDialogs(queue=>queue.filter(r=>r.id!==event.id)); return
+      }
       if (event.type === 'desktop_subagents_status') {
         subagentRevision.current++
         setSubagents(event.status)
@@ -421,8 +448,8 @@ export function SessionView({
     }
   }, [handle])
   useEffect(() => {
-    if (visible) refreshVisibleTodo.current()
-  }, [visible])
+    if (visible && !presentationPaused) refreshVisibleTodo.current()
+  }, [visible,presentationPaused])
   useEffect(() => {
     if (visible) {
       document.title = extensionTitle
@@ -506,6 +533,10 @@ export function SessionView({
   }
   useEffect(() => {
     if (!action || action.handle !== handle) return
+    if (action.name === 'reference' && action.path) {
+      const path = action.path
+      setReferences(old => old.includes(path) ? old : [...old, path])
+    }
     if (action.name === 'rename') setRename(session.state.sessionName || '')
     if (action.name === 'fork') void showBranches()
     if (action.name === 'clone') void run('clone')
@@ -806,7 +837,7 @@ export function SessionView({
           <ChevronRight size={12} />
           <strong title={title}>{title}</strong>
         </div>
-        <div className="header-actions">
+        <div className="header-actions"><BubbleButton />
           <button
             className={`icon-button ${filesOpen ? 'active' : ''}`}
             aria-label={t("Toggle files")}
@@ -831,7 +862,7 @@ export function SessionView({
             activity={activity}
             workspace={session.workspace}
             handle={session.handle}
-            active={visible}
+            active={visible && !presentationPaused}
             modelProvider={session.state.model?.provider}
             onSubagentDraft={draftSubagentGuidance}
             requestNavigation={requestNavigation}
@@ -879,7 +910,7 @@ export function SessionView({
                 )}
               </div>
             )}
-            <SubagentFocusCard status={subagents} active={visible} requestForAgent={agent => requestForAgent(displayedMessages, agent)}
+            <SubagentFocusCard status={subagents} active={visible && !presentationPaused} requestForAgent={agent => requestForAgent(displayedMessages, agent)}
               onRequest={requestId => setRequestNavigation(old => ({ requestId, sequence: (old?.sequence ?? 0) + 1 }))} />
             <Composer
               usage={usage}

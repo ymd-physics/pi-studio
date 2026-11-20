@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process'
 
 // Deterministic HTTP provider for tests ONLY. Pi still owns prompts, sessions,
 // extensions, tool execution, cancellation, and serialization end to end.
-export async function createFixture({ completion } = {}) {
+export async function createFixture({ completion, beforeFinalChunk } = {}) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'pi-desktop-test-')))
   const agentDir = join(root, 'agent'),
     workspace = join(root, 'research'),
@@ -156,6 +156,7 @@ export async function createFixture({ completion } = {}) {
     ])
     if (/grouped tools/i.test(text || '') && last?.role !== 'tool')
       await new Promise((resolve) => setTimeout(resolve, 1600))
+    if (beforeFinalChunk) await beforeFinalChunk(text, content => event([{index:0, delta:{content}, finish_reason:null}]))
     event([{ index: 0, delta, finish_reason: null }])
     event([{ index: 0, delta: {}, finish_reason: reason }])
     event([])

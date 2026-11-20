@@ -1,6 +1,7 @@
 import { useUiText } from './language'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, Folder, FileText, X } from 'lucide-react'
+import { ChevronLeft, Folder, X } from 'lucide-react'
+import { FilePageIcon } from './FilePageIcon'
 import type { FileEntry } from '../../../../packages/shared/desktop'
 import { CodeBlock, Markdown } from './Markdown'
 import { guessLangFromPath } from '../lib/shiki-highlighter'
@@ -9,15 +10,26 @@ export function Files({
   close,
   onDirty,
   handle,
+  openTerminal,
+  reference,
   refreshKey = 0,
+  active = true,
 }: {
+  active?: boolean
   close: () => void
   onDirty: (dirty: boolean) => void
   handle?: string
+  reference?: (path: string) => void
+  openTerminal?: (directory: string) => Promise<void>
   refreshKey?: number
 }) {
   const t = useUiText()
   const [directory, setDirectory] = useState('')
+  const [listHeight, setListHeight] = useState<number>()
+  const listRef = useRef<HTMLDivElement>(null)
+  const dragOffset = useRef<number | null>(null)
+  const parts = directory.split('/').filter(Boolean)
+  const go = (path: string) => void open({ name: path, path, isDirectory: true })
   const [refresh, setRefresh] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [menu, setMenu] = useState<{ entry?: FileEntry; x: number; y: number }>()
@@ -64,19 +76,20 @@ export function Files({
     onDirty(dirty)
   }, [dirty, onDirty])
   useEffect(() => {
-    let active = true
+    if (!active) { setMenu(undefined); setNaming(undefined); setDragging(false); return }
+    let current = true
     window.desktop
       .files(directory, handle)
       .then((data) => {
-        if (active) setEntries(data)
+        if (current) setEntries(data)
       })
       .catch((e) => {
-        if (active) setError(String(e))
+        if (current) setError(String(e))
       })
     return () => {
-      active = false
+      current = false
     }
-  }, [directory, refresh, handle, refreshKey])
+  }, [active, directory, refresh, handle, refreshKey])
   const discard = () => !dirty || window.confirm(t('Discard unsaved file changes?'))
   const open = async (entry: FileEntry) => {
     if (saveActive.current || !discard()) return
@@ -120,6 +133,7 @@ export function Files({
       setSaving(false)
     }
   }
+  const targetDirectory = (entry?: FileEntry) => entry?.isDirectory ? entry.path : directory
   const operate = async (action: string, entry?: FileEntry, newName?: string, folder = false) => {
     setMenu(undefined)
     if (saveActive.current || !handle) return
@@ -129,9 +143,10 @@ export function Files({
     setSaving(true)
     setError('')
     try {
+      if (action === 'external') { await window.desktop.openFileExternally(handle, entry!.path); return }
       if (action === 'copy') await window.desktop.copyFile(handle, entry!.path)
       else if (action === 'paste')
-        await window.desktop.pasteFiles(handle, entry?.isDirectory ? entry.path : directory)
+        await window.desktop.pasteFiles(handle, targetDirectory(entry))
       else {
         const result = await window.desktop.fileOperation(
           handle,
@@ -160,6 +175,8 @@ export function Files({
       setSaving(false)
     }
   }
+  // Keep workspace-owned editor state, not a hidden preview DOM or filesystem subscription.
+  if (!active) return null
   return (
     <aside
       className={`file-panel ${dragging ? 'drag-over' : ''}`}
@@ -200,12 +217,7 @@ export function Files({
         <button
           className="icon-button"
           aria-label={t("Close files")}
-          onClick={() => {
-            if (discard()) {
-              onDirty(false)
-              close()
-            }
-          }}
+          onClick={close}
         >
           <X size={16} />
         </button>
@@ -221,9 +233,14 @@ export function Files({
         >
           <ChevronLeft size={16} />
         </button>
-        <span>{directory || t('Workspace')}</span>
+        <nav className="file-crumbs" aria-label={t('Folder path')}>
+          <button disabled={!directory || saving} onClick={() => go('')}>{t('Workspace')}</button>
+          {parts.length > 2 && <select aria-label={t('Parent folders')} value="" disabled={saving} onChange={e => go(e.target.value)}><option value="" disabled>…</option>{parts.slice(0,-2).map((name,i) => <option key={i} value={parts.slice(0,i+1).join('/')}>{name}</option>)}</select>}
+          {parts.map((name,i) => i >= parts.length-2 && <button key={i} title={parts.slice(0,i+1).join('/')} disabled={saving || i===parts.length-1} onClick={() => go(parts.slice(0,i+1).join('/'))}>{name}</button>)}
+        </nav>
       </div>
       <div
+        ref={listRef} style={file && listHeight !== undefined ? {height:listHeight, maxHeight:'65%', flexShrink:0} : undefined}
         className="file-list"
         onContextMenu={(e) => {
           e.preventDefault()
@@ -250,7 +267,7 @@ export function Files({
                 })
             }}
           >
-            {entry.isDirectory ? <Folder size={14} /> : <FileText size={14} />}
+            {entry.isDirectory ? <Folder size={14} /> : <FilePageIcon name={entry.name} />}
             <span>{entry.name}</span>
           </button>
         ))}
@@ -265,6 +282,8 @@ export function Files({
         >
           {menu.entry && (
             <>
+              <button role="menuitem" onClick={() => void operate('external', menu.entry)}>{t(menu.entry.isDirectory ? (/Mac/.test(navigator.platform) ? 'Open in Finder' : 'Open folder externally') : 'Open with default application')}</button>
+              {reference && <button role="menuitem" onClick={() => { reference(menu.entry!.path); setMenu(undefined) }}>{t('Reference in current conversation')}</button>}
               <button role="menuitem" onClick={() => void operate('copy', menu.entry)}>{t("Copy")}</button>
               <button
                 role="menuitem"
@@ -276,6 +295,7 @@ export function Files({
               <button role="menuitem" onClick={() => void operate('trash', menu.entry)}>{t("Move to Trash…")}</button>
             </>
           )}
+          {openTerminal && <button role="menuitem" disabled={saving} onClick={() => { setMenu(undefined); void openTerminal(targetDirectory(menu.entry)) }}>{t(menu.entry && !menu.entry.isDirectory ? 'New terminal in containing folder' : 'New terminal here')}</button>}
           <button role="menuitem" onClick={() => void operate('paste', menu.entry)}>{t("Paste")}{menu.entry?.isDirectory ? t(' into folder') : ''}
           </button>
           {!menu.entry && (
@@ -331,6 +351,16 @@ export function Files({
           {error}
         </div>
       )}
+      {file && <div className="file-split" role="separator" aria-label={t('Resize file preview')} aria-orientation="horizontal" tabIndex={0}
+        title={t('Drag to resize; double-click to reset')} onDoubleClick={() => setListHeight(undefined)}
+        onPointerDown={e => { if (e.button !== 0 || !listRef.current) return; dragOffset.current=e.clientY-listRef.current.offsetHeight; e.currentTarget.setPointerCapture(e.pointerId) }}
+        onPointerMove={e => { if (dragOffset.current !== null) setListHeight(Math.max(80, e.clientY-dragOffset.current)) }}
+        onLostPointerCapture={() => { dragOffset.current=null }} onKeyDown={e => {
+          if (e.key === 'Home') setListHeight(undefined)
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') setListHeight(Math.max(80,(listRef.current?.offsetHeight || 80)+(e.key==='ArrowUp'?-24:24)))
+          else return
+          e.preventDefault()
+        }} />}
       {file && (
         <div className="file-document">
           <div className="file-toolbar">
@@ -344,6 +374,10 @@ export function Files({
             <button disabled={!dirty || saving || reading} onClick={() => void save()}>
               {saving ? t('Saving…') : t('Save')}
             </button>
+            <button className="icon-button" aria-label={t('Close file')} title={t('Close file')} disabled={saving} onClick={() => {
+              if (saveActive.current || !discard()) return
+              generation.current++; setReading(false); setFile(''); setDraft(''); setSaved(''); setRevision(''); setEditing(false); setError('')
+            }}><X size={14} /></button>
           </div>
           {editing ? (
             <textarea
