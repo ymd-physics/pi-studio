@@ -74,6 +74,15 @@ it('requests a confirmed mode transition without copying direct data into the dr
   view.rerender(<TerminalView {...props} />)
   expect(screen.getByLabelText('Terminal command')).toHaveProperty('value', 'keep')
 })
+it('quotes only selected output without sending or changing the clipboard', async () => {
+  const onQuote = vi.fn(), {transport} = setup({ onQuote })
+  await waitFor(() => expect(transport.attach).toHaveBeenCalled())
+  mocks.instances[0].getSelection.mockReturnValue('line one\nline two')
+  fireEvent.contextMenu(screen.getByLabelText('Terminal output'))
+  fireEvent.click(screen.getByRole('menuitem', { name:'Quote in conversation…' }))
+  expect(onQuote).toHaveBeenCalledWith('line one\nline two')
+  expect(transport.copyText).not.toHaveBeenCalled(); expect(transport.submit).not.toHaveBeenCalled()
+})
 it('handles IME, multiline, submission and own history', async () => {
   const { transport } = setup()
   const editor = screen.getByLabelText('Terminal command')

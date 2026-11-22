@@ -34,7 +34,7 @@ export function Files({
   const [dragging, setDragging] = useState(false)
   const [menu, setMenu] = useState<{ entry?: FileEntry; x: number; y: number }>()
   const [naming, setNaming] = useState<{
-    type: 'rename' | 'create'
+    type: 'rename' | 'create' | 'draftCopy'
     entry?: FileEntry
     folder?: boolean
     name: string
@@ -61,6 +61,7 @@ export function Files({
   const [revision, setRevision] = useState('')
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
+  const [conflict, setConflict] = useState<{file: string; disk: string}>()
   const [saving, setSaving] = useState(false)
   const [reading, setReading] = useState(false)
   const generation = useRef(0)
@@ -93,6 +94,7 @@ export function Files({
   const discard = () => !dirty || window.confirm(t('Discard unsaved file changes?'))
   const open = async (entry: FileEntry) => {
     if (saveActive.current || !discard()) return
+    setConflict(undefined)
     const id = ++generation.current
     setError('')
     setReading(false)
@@ -126,8 +128,12 @@ export function Files({
     try {
       setRevision(await window.desktop.saveFile(file, draft, revision, handle))
       setSaved(draft)
+      setConflict(undefined)
     } catch (e) {
-      setError(String(e))
+      if (String(e).includes('File changed on disk')) {
+        try { const disk = await window.desktop.readFile(file, handle); setConflict({file, disk:disk.content}) }
+        catch (readError) { setError(String(readError)) }
+      } else setError(String(e))
     } finally {
       saveActive.current = false
       setSaving(false)
@@ -150,13 +156,18 @@ export function Files({
       else {
         const result = await window.desktop.fileOperation(
           handle,
-          action === 'create'
+          action === 'draftCopy' ? {type:'create', directory:file.includes('/') ? file.slice(0,file.lastIndexOf('/')) : '', name:newName!, folder:false, content:draft} : action === 'create'
             ? { type: 'create', directory, name: newName!, folder }
             : action === 'rename'
               ? { type: 'rename', path: entry!.path, name: newName! }
               : { type: 'trash', path: entry!.path },
         )
         if (!result) return
+        if (action === 'draftCopy') {
+          const copyPath = file.slice(0, file.lastIndexOf('/') + 1) + newName!
+          const copy = await window.desktop.readFile(copyPath, handle)
+          setFile(copyPath); setRevision(copy.revision); setSaved(copy.content); setConflict(undefined)
+        }
         if (destructive) {
           generation.current++
           setReading(false)
@@ -323,13 +334,13 @@ export function Files({
           <form
             className="dialog"
             role="dialog"
-            aria-label={naming.type === 'rename' ? t('Rename file') : naming.folder ? t('New folder') : t('New file')}
+            aria-label={naming.type === 'draftCopy' ? t('Save draft as…') : naming.type === 'rename' ? t('Rename file') : naming.folder ? t('New folder') : t('New file')}
             onSubmit={(e) => {
               e.preventDefault()
               void operate(naming.type, naming.entry, naming.name, naming.folder)
             }}
           >
-            <h2>{naming.type === 'rename' ? t('Rename') : naming.folder ? t('New folder') : t('New file')}</h2>
+            <h2>{naming.type === 'draftCopy' ? t('Save draft as…') : naming.type === 'rename' ? t('Rename') : naming.folder ? t('New folder') : t('New file')}</h2>
             <input
               autoFocus
               aria-label={t("File name")}
@@ -351,6 +362,11 @@ export function Files({
           {error}
         </div>
       )}
+      {conflict && conflict.file === file && <section className="file-conflict" aria-label={t('File changed on disk')}>
+        <strong>{t('File changed on disk')}</strong>
+        <details><summary>{t('Compare versions')}</summary><b>{t('On disk')}</b><pre>{conflict.disk}</pre><b>{t('My draft')}</b><pre>{draft}</pre></details>
+        <button disabled={saving} onClick={() => { const base=file.split('/').at(-1)!; const dot=base.lastIndexOf('.'); setNaming({type:'draftCopy',name:dot>0 ? base.slice(0,dot)+'-draft'+base.slice(dot) : base+'-draft'}) }}>{t('Save draft as…')}</button>
+      </section>}
       {file && <div className="file-split" role="separator" aria-label={t('Resize file preview')} aria-orientation="horizontal" tabIndex={0}
         title={t('Drag to resize; double-click to reset')} onDoubleClick={() => setListHeight(undefined)}
         onPointerDown={e => { if (e.button !== 0 || !listRef.current) return; dragOffset.current=e.clientY-listRef.current.offsetHeight; e.currentTarget.setPointerCapture(e.pointerId) }}

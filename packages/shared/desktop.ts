@@ -56,6 +56,8 @@ export interface RunningSession {
   status: SessionStatus
 }
 export interface SessionInfo {
+  conversationAt?: number
+  pinned?: boolean
   matchSnippet?: string
   status?: SessionStatus
   handle?: string
@@ -66,7 +68,12 @@ export interface SessionInfo {
   modified: string
   messageCount: number
 }
+export const MAX_PINNED_WORKSPACES = 5
+export const MAX_PINNED_SESSIONS = 5
 export interface Workspace {
+  pinnedSessions?: string[]
+  pinned?: boolean
+  lastRunAt?: number
   path: string
   name: string
 }
@@ -131,6 +138,8 @@ export interface DesktopAPI {
   closeTerminal(id: string): Promise<boolean>
   terminal: TerminalTransport
   addWorkspace(): Promise<Preferences>
+  pinSession(workspace: string, path: string, pinned: boolean): Promise<void>
+  pinWorkspace(path: string, pinned: boolean): Promise<Preferences>
   renameWorkspace(path: string, name: string): Promise<Preferences>
   removeWorkspace(path: string): Promise<Preferences>
   sessions(workspace: string, query?: string): Promise<SessionInfo[]>

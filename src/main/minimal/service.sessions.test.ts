@@ -46,6 +46,33 @@ async function fixture(demand?: (needed: boolean) => void) {
   return { service, dir, events, trash }
 }
 describe('DesktopService session pool', () => {
+  it('enforces five pins even for concurrent requests; unpinning frees a slot', async () => {
+    const { service, dir } = await fixture()
+    const paths = Array.from({length:6}, (_,i) => join(dir,String(i)))
+    service.preferences.workspaces = paths.map(path => ({path,name:path}))
+    const results = await Promise.allSettled(paths.map(path => service.pinWorkspace(path,true)))
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(5)
+    await service.pinWorkspace(paths[0],false); await service.pinWorkspace(paths[5],true)
+    expect(service.preferences.workspaces.filter(w=>w.pinned).map(w=>w.path)).toEqual(paths.slice(1))
+  })
+  it('sorts sessions by actual conversation time and enforces five independent pins per workspace', async () => {
+    const {service,dir} = await fixture(), other = join(dir,'other')
+    service.preferences.workspaces.push({path:other,name:'other'})
+    const paths = (w:string) => Array.from({length:7},(_,i)=>join(w,`${i}.jsonl`))
+    ;(service as any).sdk.SessionManager.list = async (w:string) => paths(w).map((path,i)=>({id:String(i),path,modified:i === 0 ? 9000 : i*100, firstMessage:'',allMessagesText:i ? 'conversation' : '',messageCount:i ? 1 : 0}))
+    const files = paths(dir)
+    expect((await service.sessions(dir)).map(s=>s.path)).toEqual([...files].reverse())
+    const view = await service.open(dir,files[1]); expect((await service.sessions(dir))[0].path).toBe(files[6])
+    native.processes[0].emit({type:'agent_start'}); expect((await service.sessions(dir))[0].path).toBe(files[1])
+    const attempts = await Promise.allSettled(files.slice(1).map(p=>service.pinSession(dir,p,true)))
+    expect(attempts.filter(x=>x.status==='fulfilled')).toHaveLength(5)
+    await service.pinSession(other,paths(other)[0],true)
+    await expect(service.pinSession(other,files[0],true)).rejects.toThrow()
+    expect((await service.sessions(dir)).slice(0,5).map(s=>s.path)).toEqual([1,5,4,3,2].map(i=>files[i]))
+    await service.pinSession(dir,files[4],false); await service.pinSession(dir,files[6],true)
+    native.processes[0].emit({type:'agent_settled'}); await service.closeSession(view.handle)
+    await service.deleteSession(dir,files[1]); expect(service.preferences.workspaces[0].pinnedSessions).not.toContain(files[1])
+  })
   it('searches titles and archived message bodies without opening sessions', async () => {
     const { service, dir } = await fixture()
     const list = vi.fn(async () => [{ id:'a', path:join(dir,'a'), modified:0, firstMessage:'hello', name:'Thesis', allMessagesText:'hello later CODE example' }])

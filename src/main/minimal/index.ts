@@ -192,6 +192,8 @@ else {
           })
           return trust.response === 1 ? service.addWorkspace(answer.filePaths[0]) : service.preferences
         },
+        pinSession: (workspace, path, pinned) => service.pinSession(workspace, path, pinned),
+        pinWorkspace: (path, pinned) => service.pinWorkspace(path, pinned),
         renameWorkspace: (path, name) => service.renameWorkspace(path, name),
         removeWorkspace: async (path) => {
           const choice = await dialog.showMessageBox(window!, {

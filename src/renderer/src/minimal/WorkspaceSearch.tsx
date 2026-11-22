@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react'
 import type { SessionInfo, Workspace } from '../../../../packages/shared/desktop'
 import { useUiText } from './language'
 
-export function WorkspaceSearch({ workspace, open, close }: { workspace: Workspace; open(path: string): void; close(): void }) {
+export function WorkspaceSearch({ workspace, open, close }: { workspace: Workspace; open(path: string, term?: string, snippet?: string): void; close(): void }) {
   const t = useUiText()
   const dialog = useRef<HTMLDialogElement>(null)
   const [query, setQuery] = useState('')
@@ -27,7 +27,7 @@ export function WorkspaceSearch({ workspace, open, close }: { workspace: Workspa
       const text = item.matchSnippet || title
       const term = query.trim()
       const at = text.toLowerCase().indexOf(term.toLowerCase())
-      return <button key={item.path} onClick={() => open(item.path)}>
+      return <button key={item.path} onClick={() => open(item.path, item.matchSnippet ? term : undefined, item.matchSnippet)}>
         <span title={text}>{at < 0 ? text : <>{text.slice(0, at)}<mark>{text.slice(at, at + term.length)}</mark>{text.slice(at + term.length)}</>}</span>
         {item.matchSnippet && <small title={title}><span aria-hidden="true">↳ </span>{title}</small>}
       </button>

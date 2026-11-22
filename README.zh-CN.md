@@ -24,12 +24,12 @@ Pi Studio 把 [Pi](https://pi.dev/) 和本地终端放在同一个工作区里�
 
    装好后，在终端运行 `pi`，选择模型并完成认证，试着发一条消息。Studio 使用你本机的 Pi，不会替你安装或升级它。如果想装插件，可以先去 Pi 官网的 **Packages** 页面找一找，再按插件说明安装。
 
-2. 在本仓库的 **Releases → Assets** 下载 [`Pi-Studio-1.2.1-mac-arm64.dmg`](https://github.com/ymd-physics/pi-studio/releases/download/v1.2.1/Pi-Studio-1.2.1-mac-arm64.dmg)。`Source code` 是源码归档，不是安装包。
+2. 在本仓库的 **Releases → Assets** 下载 [`Pi-Studio-1.2.2-mac-arm64.dmg`](https://github.com/ymd-physics/pi-studio/releases/download/v1.2.2/Pi-Studio-1.2.2-mac-arm64.dmg)。`Source code` 是源码归档，不是安装包。
 
-3. 安装前，在 DMG 所在的目录运行以下命令，把输出的 SHA-256 与[该版本发布页](https://github.com/ymd-physics/pi-studio/releases/tag/v1.2.1)列出的值核对。如果不同，请删除这个 DMG，重新从发布页下载，不要安装。
+3. 安装前，在 DMG 所在的目录运行以下命令，把输出的 SHA-256 与[该版本发布页](https://github.com/ymd-physics/pi-studio/releases/tag/v1.2.2)列出的值核对。如果不同，请删除这个 DMG，重新从发布页下载，不要安装。
 
    ```sh
-   shasum -a 256 Pi-Studio-1.2.1-mac-arm64.dmg
+   shasum -a 256 Pi-Studio-1.2.2-mac-arm64.dmg
    ```
 
 4. 打开 DMG，将 **Pi Studio.app** 拖入「应用程序」（Applications），弹出磁盘映像，再从「应用程序」启动。

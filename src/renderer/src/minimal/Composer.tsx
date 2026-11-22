@@ -102,6 +102,7 @@ export function Composer({
     setSuggestion(0)
   }, [draft, inputRef])
 
+  const statusText = Object.values(statuses).filter(Boolean).join(' · ')
   return (
     <>
       <div className="extension-widgets">
@@ -328,8 +329,8 @@ export function Composer({
       <div className="composer-footer" role="group" aria-label={t("Allowance and keyboard shortcuts")}>
         <div className="composer-footer-left">
           {supportsCodexFeatures(session.state.model) && <CodexQuota usage={usage} />}
-          {Object.values(statuses).some(Boolean) && (
-            <span className="composer-status">{Object.values(statuses).filter(Boolean).join(' · ')}</span>
+          {statusText && (
+            <span className="composer-status" title={statusText}>{statusText}</span>
           )}
         </div>
         <span className="composer-shortcuts">

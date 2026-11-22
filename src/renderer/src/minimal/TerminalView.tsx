@@ -13,6 +13,7 @@ export interface TerminalViewProps {
   terminalFontSize?: number | 'auto'
   onFontSizeChange(value: number | 'auto'): void
   toggleSidebar(): void
+  onQuote?(text: string): void
   onClose(): void
   action?: { id: string; name: 'clear'; sequence: number }
   onError?(error: unknown): void
@@ -34,7 +35,7 @@ function terminalTheme(info: TerminalInfo) {
     cursorAccent: idle ? foreground : background, selectionBackground: color('--accent-soft') }
 }
 
-export function TerminalView({ info, visible, transport, workspaceName, terminalFontSize = 'auto', onFontSizeChange, toggleSidebar, onClose, action, onError }: TerminalViewProps) {
+export function TerminalView({ info, visible, transport, workspaceName, terminalFontSize = 'auto', onFontSizeChange, toggleSidebar, onClose, onQuote, action, onError }: TerminalViewProps) {
   const t = useUiText()
   const root = useRef<HTMLElement>(null)
   const host = useRef<HTMLDivElement>(null)
@@ -385,6 +386,7 @@ export function TerminalView({ info, visible, transport, workspaceName, terminal
       <footer className="terminal-view__status"><span><i />{t("Local session") + ' '}<span>·</span> {info.state === 'exited' ? t('Exited {code}', { code: info.exitCode ?? '' }) : t('Temporary until App quit')}</span><span>{info.shell.split('/').at(-1)}{' ' + t("· UTF-8")}</span></footer>
     </div>
     {menu && <div ref={menuNode} className="menu terminal-output-menu" role="menu" aria-label={t("Terminal text actions")} style={{ left: menu.x, top: menu.y }} onPointerDown={(event) => event.stopPropagation()}>
+      {onQuote && menu.kind === 'output' && menu.selection && <button role="menuitem" onClick={() => { onQuote(menu.selection); setMenu(undefined) }}>{t('Quote in conversation…')}</button>}
       <button role="menuitem" disabled={!menu.selection} onClick={() => { const text = menu.selection; setMenu(undefined); void transport.copyText(text).catch(report) }}>{t("Copy")}</button>
       <button role="menuitem" disabled={info.state === 'exited' || (menu.kind === 'output' && (commandMode || modeBusy))} onClick={() => void paste()}>{t("Paste")}</button>
       <button role="menuitem" onClick={() => { if (menu.kind === 'command') input.current?.select(); else term.current?.selectAll(); setMenu(undefined) }}>{t("Select all")}</button>

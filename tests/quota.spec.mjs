@@ -99,6 +99,24 @@ test('built-in quota uses native auth detection and renders safe snapshots witho
     )
     await expect(meter).toContainText('Quota unavailable')
     await expect(meter).not.toContainText('% left')
+    const handle = await page.evaluate(async () => (await window.desktop.snapshot()).handle)
+    const setStatus = text => app.evaluate(({BrowserWindow}, [desktopSession, statusText]) =>
+      BrowserWindow.getAllWindows()[0].webContents.send('pi:event', {type:'extension_ui_request', method:'setStatus', desktopSession, statusKey:'usage-test', statusText}), [handle, text])
+    const status = footer.locator('.composer-status')
+    await setStatus('usage error')
+    await expect(status).toContainText('usage error')
+    // Compare actual text, not flex boxes: only the quota label has an SVG sibling.
+    const textY = locator => locator.evaluate(el => {
+      const range = document.createRange(); range.selectNodeContents(el.lastChild)
+      return range.getBoundingClientRect().y
+    })
+    expect(Math.abs(await textY(footer.locator('.quota-unavailable')) - await textY(status))).toBeLessThanOrEqual(1)
+    const long = 'codex week: 45% (reset 3d 1h) · '.repeat(12).trim()
+    await setStatus(long)
+    await expect(status).toContainText(long)
+    await expect(status).toHaveAttribute('title', long)
+    expect(await status.evaluate(el => el.scrollWidth > el.clientWidth && el.clientHeight <= parseFloat(getComputedStyle(el).lineHeight) + 1)).toBe(true)
+    await setStatus('')
     await model.selectOption('desktop-test/test-model')
     await expect(model).toBeEnabled()
     await expect(meter).toHaveCount(0)

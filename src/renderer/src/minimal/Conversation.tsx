@@ -366,6 +366,7 @@ export const Conversation = memo(
     modelProvider,
     onSubagentDraft,
     requestNavigation,
+    searchJump,
   }: {
     messages: Message[]
     busy: boolean
@@ -376,6 +377,7 @@ export const Conversation = memo(
     modelProvider?: string
     onSubagentDraft?: (request: SupervisorRequest) => void
     requestNavigation?: { requestId: string; sequence: number }
+    searchJump?: { text?: string; sequence: number; snippet?: string }
   }) {
   const t = useUiText()
     const scroll = useRef<HTMLDivElement>(null)
@@ -412,6 +414,33 @@ export const Conversation = memo(
         return text?.toLowerCase().includes(term) ? [index] : []
       })
     }, [rows, active, finding, query])
+    const [jumpKey, setJumpKey] = useState<string>()
+    const lastJump = useRef<number>()
+    useEffect(() => {
+      if (!active || !searchJump?.text || lastJump.current === searchJump.sequence) return
+      const term = searchJump.text.toLowerCase(), snippet = searchJump.snippet?.toLowerCase() || term
+      const at = snippet.indexOf(term)
+      // Disk search snippets can include adjacent messages. Match their surrounding text
+      // rather than blindly jumping to the first occurrence in the current branch.
+      let best = -1, score = -1
+      rows.forEach((row, index) => {
+        const text = (row.kind === 'text' ? row.text : row.kind === 'message' && row.message.role === 'user' ? userMessageView(row.message).text : row.kind === 'message' && row.message.role === 'assistant' ? messageText(row.message) : '')?.toLowerCase() || ''
+        for (let p = text.indexOf(term); p !== -1; p = text.indexOf(term, p + term.length)) {
+          let l = 0, r = term.length
+          while (l < p && l < at && text[p-l-1] === snippet[at-l-1]) l++
+          while (p+r < text.length && at+r < snippet.length && text[p+r] === snippet[at+r]) r++
+          if (l+r > score) { best = index; score = l+r }
+        }
+      })
+      if (best < 0) return
+      follow.current = false
+      if (rows.length-best > visible) { setVisible(rows.length-best); return }
+      const target = scroll.current?.querySelector(`[data-jump-key="${CSS.escape(rows[best].key)}"]`)
+      if (!target) return
+      lastJump.current = searchJump.sequence; setJumpKey(rows[best].key)
+      target.scrollIntoView?.({block:'center'})
+    }, [active, rows, visible, searchJump])
+    useEffect(() => { if (jumpKey) { const timer = setTimeout(() => setJumpKey(undefined), 1800); return () => clearTimeout(timer) } }, [jumpKey, searchJump?.sequence])
     const position = Math.min(cursor, Math.max(0, hits.length - 1))
     const hit = hits[position]
     const hitKey = rows[hit]?.key
@@ -512,7 +541,7 @@ export const Conversation = memo(
                   if (row.kind === 'tool') return null
                   if (row.kind === 'text')
                     return (
-                      <article className="message assistant-message" data-find-current={row.key === hitKey || undefined} key={row.key}>
+                      <article className="message assistant-message" data-jump-key={row.key} data-find-current={row.key === hitKey || row.key === jumpKey || undefined} key={row.key}>
                         <Document text={row.text} />
                       </article>
                     )
@@ -575,7 +604,8 @@ export const Conversation = memo(
                   return (
                     <article
                       key={row.key}
-                      data-find-current={row.key === hitKey || undefined}
+                      data-jump-key={row.key}
+                      data-find-current={row.key === hitKey || row.key === jumpKey || undefined}
                       className={`message ${user ? 'user-message' : 'assistant-message'}`}
                     >
                       {text && (user ? <div className="user-bubble">{text}</div> : <Document text={text} />)}

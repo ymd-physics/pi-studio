@@ -1,8 +1,10 @@
+import { MAX_PINNED_SESSIONS, MAX_PINNED_WORKSPACES } from '../../../../packages/shared/desktop'
 import { resolveTheme } from '../../../../packages/shared/themes'
+import { PinMark } from './PinMark'
 import { WorkspaceIcon } from './WorkspaceIcon'
 import { LanguageContext } from './language'
 import { uiText } from '../../../../packages/shared/language'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus,
   FolderPlus,
@@ -38,6 +40,7 @@ import type { TerminalInfo } from '../../../../packages/shared/terminal'
 import { BubbleButton } from './BubbleButton'
 import { Files } from './Files'
 import { PreferencesPanel } from './PreferencesPanel'
+import { draftKey, storeDraft } from './session-drafts'
 import { WorkspaceSearch } from './WorkspaceSearch'
 import { WorkspaceInfo } from './WorkspaceInfo'
 import { ResizeEdge, usePanelWidths } from './ResizeEdge'
@@ -61,6 +64,8 @@ export function App() {
   const [preferences, setPreferences] = useState<Preferences>()
   const [runtime, setRuntime] = useState('Connecting to your Pi installation…')
   const [sessions, setSessions] = useState<Record<string, SessionInfo[]>>({})
+  const sortedWorkspaces = useMemo(() => (preferences?.workspaces || []).map(w => ({w, at:(sessions[w.path] || []).reduce((at,s) => Math.max(at,s.conversationAt || 0), w.lastRunAt || 0)}))
+    .sort((a,b) => Number(!!b.w.pinned)-Number(!!a.w.pinned) || b.at-a.at).map(item => item.w), [preferences?.workspaces,sessions])
   const [views, setViews] = useState<Record<string, Snapshot>>({})
   const [terminalSessions, setTerminalSessions] = useState<TerminalInfo[]>([])
   const [selected, setSelected] = useState<string>()
@@ -98,6 +103,9 @@ export function App() {
   const [dirtyPanels, setDirtyPanels] = useState<Record<string, boolean>>({})
   const dirty = Object.values(dirtyPanels).some(Boolean)
   const [settings, setSettings] = useState(false)
+  const [quote, setQuote] = useState<{ workspace: string; text: string }>()
+  const quoteDialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => { if (quote) quoteDialog.current?.showModal() }, [quote])
   const [workspaceSearch, setWorkspaceSearch] = useState<Workspace>()
   const [workspaceInfo, setWorkspaceInfo] = useState<Workspace>()
   const loadGlobalPlugins = useCallback(() => window.desktop.plugins(), [])
@@ -230,6 +238,10 @@ export function App() {
   useEffect(() => {
     let alive = true
     const off = window.desktop.onEvent((event) => {
+      if (event.type === 'desktop_workspace_run') {
+        setPreferences(old => old && ({...old, workspaces:old.workspaces.map(w => w.path === event.path ? {...w,lastRunAt:event.at} : w)}))
+        void refreshSessions().catch(showError)
+      }
       if (event.type === 'desktop_bubble_session') setSelected(event.desktopSession)
       if (event.type === 'desktop_codex_usage') setUsage(event.usage)
       if (event.type === 'desktop_terminal_sessions') {
@@ -371,6 +383,11 @@ export function App() {
     if (!context) return
     const { item, workspace } = context
     setContext(undefined)
+    if (name === 'pin') {
+      try { await window.desktop.pinSession(workspace, item.path, !item.pinned); await refreshSessions() }
+      catch (e) { showError(e) }
+      return
+    }
     setError('')
     const live = running.find((r) => r.path === item.path && r.workspace === workspace)
     if (['close', 'delete'].includes(name)) {
@@ -380,6 +397,7 @@ export function App() {
           if (!live) return
           await window.desktop.closeSession(live.handle)
         } else if (!(await window.desktop.deleteSession(workspace, item.path))) return
+        if (name === 'delete') storeDraft(draftKey(workspace, item.path), '')
         discardView(live?.handle)
         setRunning(await window.desktop.runningSessions())
         await refreshSessions()
@@ -433,7 +451,7 @@ export function App() {
             </button>
           </div>
           <nav aria-label={t("Workspaces and sessions")} className="workspace-list">
-            {preferences?.workspaces.map((workspace) => {
+            {sortedWorkspaces.map((workspace) => {
               const waitingSessions = running.filter(
                 (live) => live.workspace === workspace.path && (waiting[live.handle] || 0) > 0,
               ).length
@@ -475,7 +493,7 @@ export function App() {
                       onClick={() => toggleWorkspace(workspace.path)}
                     >
                       <WorkspaceIcon name={collapsed.includes(workspace.path) ? 'closed' : 'open'} live={running.some(r => r.workspace === workspace.path && r.status !== 'inactive')} />
-                      <span>{workspace.name}</span>
+                      <span>{workspace.name}</span>{workspace.pinned && <PinMark size={11} aria-label={t('Pinned workspace')} style={{flexShrink:0, color:'var(--muted)'}}/>}
                     </button>
                     {waitingSessions > 0 && collapsed.includes(workspace.path) && (
                       <span
@@ -569,7 +587,7 @@ export function App() {
                               workspace: workspace.path,
                               item,
                               x: Math.min(e.clientX, window.innerWidth - 238),
-                              y: Math.min(e.clientY, window.innerHeight - 340),
+                              y: Math.min(e.clientY, window.innerHeight - 380),
                             })
                           }}
                           onKeyDown={(e) => {
@@ -580,7 +598,7 @@ export function App() {
                                 workspace: workspace.path,
                                 item,
                                 x: Math.min(r.right, window.innerWidth - 238),
-                                y: Math.min(r.top, window.innerHeight - 340),
+                                y: Math.min(r.top, window.innerHeight - 380),
                               })
                             }
                           }}
@@ -597,7 +615,7 @@ export function App() {
                               <Circle size={9} fill="currentColor" strokeWidth={0} />
                             )}
                           </span>
-                          <span className="session-label">{name}</span>
+                          <span className="session-label">{name}</span>{item.pinned && <PinMark size={11} aria-label={t('Pinned session')} style={{flexShrink:0, color:'var(--muted)'}}/>}
                         </button>
                       )
                     })}
@@ -689,6 +707,7 @@ export function App() {
               ))}
             {preferences && terminalSessions.map((terminal) => <TerminalView key={`terminal:${terminal.id}`} info={terminal}
               visible={selectedTerminal?.id === terminal.id} transport={window.desktop.terminal}
+              onQuote={text => setQuote({ workspace: terminal.workspace, text })}
               workspaceName={preferences.workspaces.find((workspace) => workspace.path === terminal.workspace)?.name}
               terminalFontSize={preferences.terminalFontSize ?? 'auto'} onFontSizeChange={(terminalFontSize) => void updatePreferences({ terminalFontSize })}
               toggleSidebar={() => setSidebar((value) => !value)} onClose={() => void closeTerminal(terminal.id)} action={terminalAction} />)}
@@ -764,6 +783,7 @@ export function App() {
           </div>
           {(
             [
+              ['pin', context.item.pinned ? 'Unpin session' : 'Pin session', PinMark],
               ['rename', 'Rename session', Pencil],
               ['fork', 'Fork from message…', GitFork],
               ['clone', 'Clone session', Copy],
@@ -780,9 +800,11 @@ export function App() {
               className={name === 'delete' ? 'error-text' : ''}
               disabled={
                 loading ||
-                (contextBusy && !['tree', 'terminal', 'delete'].includes(name)) ||
+                (name === 'pin' && !context.item.pinned && (sessions[context.workspace] || []).filter(s => s.pinned).length >= MAX_PINNED_SESSIONS) ||
+                (contextBusy && !['pin', 'tree', 'terminal', 'delete'].includes(name)) ||
                 (name === 'close' && !currentLive)
               }
+              title={name === 'pin' && !context.item.pinned ? t('Up to five sessions per workspace can be pinned') : undefined}
               onClick={() => void contextAction(name)}
             >
               <Icon size={14} />
@@ -811,9 +833,17 @@ export function App() {
         preferences={preferences} runtime={runtime} onChange={(patch) => void updatePreferences(patch)}
         onClose={() => setSettings(false)} loadPlugins={loadGlobalPlugins}
       />}
-      {workspaceSearch && <WorkspaceSearch workspace={workspaceSearch} close={() => setWorkspaceSearch(undefined)} open={async path => { if (await navigate(workspaceSearch.path, path)) setWorkspaceSearch(undefined) }} />}
+      {quote && <dialog ref={quoteDialog} className="dialog workspace-search" aria-label={t('Quote in conversation…')} onCancel={() => setQuote(undefined)}>
+        <header>{t('Quote in conversation…')}<button className="icon-button" aria-label={t('Cancel')} onClick={() => setQuote(undefined)}><X size={16}/></button></header>
+        <div className="workspace-search-results">{[...(sessions[quote.workspace] || []).map(s => ({ path:s.path, label:s.name || s.firstMessage || t('Untitled conversation') })), {path:undefined,label:t('New conversation')}].map(s => <button key={s.path ?? 'new'} disabled={loading} onClick={async () => {
+          const next = await navigate(quote.workspace, s.path)
+          if (next) { setAction({ handle:next.handle, sequence:Date.now(), name:'quote', text:quote.text }); setQuote(undefined) }
+        }}>{s.label}</button>)}</div></dialog>}
+      {workspaceSearch && <WorkspaceSearch workspace={workspaceSearch} close={() => setWorkspaceSearch(undefined)} open={async (path, term, snippet) => { const next = await navigate(workspaceSearch.path, path); if (next) { setAction(term ? {handle:next.handle, name:'jump', sequence:Date.now(), text:term, snippet} : undefined); setWorkspaceSearch(undefined) } }} />}
       {workspaceInfo && <WorkspaceInfo key={workspaceInfo.path} workspace={preferences?.workspaces.find((workspace) => workspace.path === workspaceInfo.path) || workspaceInfo}
         onClose={() => setWorkspaceInfo(undefined)} loadPlugins={loadWorkspacePlugins}
+        pinLimitReached={(preferences?.workspaces.filter(w => w.pinned).length ?? 0) >= MAX_PINNED_WORKSPACES}
+        onPin={async pinned => { const next = await window.desktop.pinWorkspace(workspaceInfo.path, pinned); setPreferences(next); prefs.current = next }}
         onRename={async (name) => { const next = await window.desktop.renameWorkspace(workspaceInfo.path, name); setPreferences(next); prefs.current = next }}
       />}
     </div></LanguageContext.Provider>

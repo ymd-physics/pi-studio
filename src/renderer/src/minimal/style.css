@@ -2120,6 +2120,9 @@ button.context-toggle:active {
 .file-crumbs select { max-width:3em; font:inherit; color:inherit; background:transparent; border:0; }
 .file-split { flex:none; height:9px; cursor:row-resize; touch-action:none; background:linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat; }
 .file-split:hover, .file-split:focus-visible { background-image:linear-gradient(var(--accent),var(--accent)); }
+.file-conflict { border-block: 1px solid var(--line); padding: 10px; max-height: 35vh; overflow: auto; font-size: 12px; }
+.file-conflict summary, .file-conflict button { cursor: pointer; margin-block: 6px; }
+.file-conflict pre { margin: 4px 0 10px; padding: 8px; background: var(--sidebar); white-space: pre-wrap; overflow-wrap: anywhere; }
 .file-split + .file-document { border-top:0; }
 .file-document {
   display: flex;

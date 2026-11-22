@@ -34,6 +34,8 @@ const api: DesktopAPI = {
   closeTerminal: (id) => invoke('closeTerminal', id),
   terminal,
   addWorkspace: () => invoke('addWorkspace'),
+  pinSession: (workspace, path, pinned) => invoke('pinSession', workspace, path, pinned),
+  pinWorkspace: (path, pinned) => invoke('pinWorkspace', path, pinned),
   renameWorkspace: (path, name) => invoke('renameWorkspace', path, name),
   removeWorkspace: (path) => invoke('removeWorkspace', path),
   sessions: (workspace, query) => invoke('sessions', workspace, query),

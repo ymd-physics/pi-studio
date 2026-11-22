@@ -203,8 +203,9 @@ export class WorkspaceAssets {
         const target = await assetPath(workspace, join(operation.directory, name(operation.name)), true)
         if (operation.folder) await mkdir(target)
         else {
+          if (operation.content !== undefined && (typeof operation.content !== 'string' || Buffer.byteLength(operation.content) > 4 * 1024 ** 2)) throw new Error('Draft exceeds the file size limit')
           const file = await open(target, 'wx')
-          await file.close()
+          try { if (operation.content) await file.writeFile(operation.content, 'utf8') } finally { await file.close() }
         }
       } else if (operation.type === 'rename' || operation.type === 'trash') {
         const target = await assetPath(workspace, operation.path)

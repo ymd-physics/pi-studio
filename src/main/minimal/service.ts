@@ -3,6 +3,7 @@ import { join, basename, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { isTheme } from '../../../packages/shared/themes'
+import { MAX_PINNED_SESSIONS, MAX_PINNED_WORKSPACES } from '../../../packages/shared/desktop'
 import type { Preferences, PiRecord, Snapshot, SessionInfo } from '../../../packages/shared/desktop'
 import type { BubbleState, BubbleChoice } from '../../../packages/shared/bubble'
 import { stripAnsi } from '../../../packages/shared/ansi'
@@ -68,6 +69,7 @@ export class DesktopService {
   private opening = new Map<string, Promise<Snapshot>>()
   private deleting = new Set<string>()
   private pathChanges = 0
+  private runTimes = new Map<string, number>() // Covers live turns before the SDK writes the session file.
   private knownSessions = new Map<string, { workspace: string; info: SessionInfo }>()
   readonly assets = new WorkspaceAssets()
   private epoch = 0
@@ -170,6 +172,29 @@ export class DesktopService {
       if (!this.preferences.workspaces.some((w) => w.path === canonical))
         this.preferences.workspaces.push({ path: canonical, name: basename(canonical) || canonical })
       return this.persist()
+    })
+  }
+  pinSession(workspace: string, path: string, pinned: boolean) {
+    return this.serial(async () => {
+      const items = await this.sessions(workspace)
+      if (typeof pinned !== 'boolean' || this.deleting.has(path) || !items.some(s => s.path === path)) throw new Error('Invalid session pin')
+      const w = this.preferences.workspaces.find(w => w.path === workspace)!
+      const previous = w.pinnedSessions
+      // Externally removed (or never written) sessions do not consume a slot.
+      const pins = items.filter(s => s.pinned && s.path !== path).map(s => s.path)
+      if (pinned && pins.length >= MAX_PINNED_SESSIONS) throw new Error('Up to five sessions per workspace can be pinned')
+      w.pinnedSessions = pinned ? [...pins, path] : pins
+      try { await this.persist() } catch (e) { w.pinnedSessions = previous; throw e }
+    })
+  }
+  pinWorkspace(path: string, pinned: boolean) {
+    return this.serial(async () => {
+      const w = this.preferences.workspaces.find(w => w.path === path)
+      if (!w || typeof pinned !== 'boolean') throw new Error('Invalid workspace pin')
+      if (pinned && !w.pinned && this.preferences.workspaces.filter(w => w.pinned).length >= MAX_PINNED_WORKSPACES) throw new Error('Up to five workspaces can be pinned')
+      const previous = w.pinned
+      w.pinned = pinned
+      try { return await this.persist() } catch (e) { w.pinned = previous; throw e }
     })
   }
   renameWorkspace(path: string, name: string) {
@@ -284,6 +309,9 @@ export class DesktopService {
       name: s.name,
       firstMessage: s.firstMessage,
       modified: new Date(s.modified).toISOString(),
+      // The SDK's modified field comes from user/assistant timestamps for real conversations.
+      // Empty sessions instead use creation time; never rank by that fallback.
+      conversationAt: s.messageCount > 0 && s.allMessagesText?.trim() ? new Date(s.modified).getTime() : undefined,
       messageCount: s.messageCount,
       status: 'inactive',
     }))
@@ -311,6 +339,13 @@ export class DesktopService {
         if (text) bodies.set(path, `${bodies.get(path) || ''}\n${text}`)
       }
     }
+    const pins = this.preferences.workspaces.find(w => w.path === workspace)?.pinnedSessions || []
+    for (const s of result) {
+      if (pins.includes(s.path)) s.pinned = true
+      const started = this.runTimes.get(s.path)
+      if (started) s.conversationAt = Math.max(started, s.conversationAt || 0)
+    }
+    result.sort((a,b) => Number(!!b.pinned) - Number(!!a.pinned) || (b.conversationAt || 0) - (a.conversationAt || 0))
     if (term) return result.filter(s => {
       const body = bodies.get(s.path) || s.firstMessage || ''
       const at = body.toLowerCase().indexOf(term)
@@ -455,7 +490,18 @@ export class DesktopService {
             session.ui.set(`${record.method}:${record.statusKey || record.widgetKey || ''}`, tagged)
           }
         }
-        if (record.type === 'agent_start') session.running = true
+        if (record.type === 'agent_start') {
+          session.running = true
+          const path = session.snapshot.workspace, at = Date.now()
+          if (session.snapshot.state.sessionFile) this.runTimes.set(session.snapshot.state.sessionFile, at)
+          void this.serial(async () => {
+            const w = this.preferences.workspaces.find(w => w.path === path)
+            if (!w) return
+            w.lastRunAt = at
+            await this.persist()
+            this.event({type:'desktop_workspace_run', path, at})
+          }).catch(e => console.warn('Could not save workspace activity', e))
+        }
         if (record.type === 'agent_settled') {
           session.running = false
           session.settled++
@@ -598,6 +644,9 @@ export class DesktopService {
         )
         if (exists) await this.trashSession(path)
         this.knownSessions.delete(path)
+        this.runTimes.delete(path)
+        const owner = this.preferences.workspaces.find(w => w.path === workspace)
+        if (owner?.pinnedSessions) owner.pinnedSessions = owner.pinnedSessions.filter(p => p !== path)
         if (session) {
           this.pool.delete(session.handle)
           this.changed(session)

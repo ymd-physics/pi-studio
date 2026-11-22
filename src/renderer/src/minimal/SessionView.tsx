@@ -1,3 +1,4 @@
+import { draftKey, readDraft, storeDraft } from './session-drafts'
 import { useUiText } from './language'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
@@ -23,7 +24,7 @@ import type { Attachment, AttachmentInput } from '../../../../packages/shared/as
 import type { CodexUsageSnapshot } from '../../../../packages/shared/codex-usage'
 import { supportsCodexFeatures } from '../../../../packages/shared/codex-model'
 
-export type SessionAction = { handle: string; name: string; sequence: number; path?: string }
+export type SessionAction = { handle: string; name: string; sequence: number; path?: string; text?: string; snippet?: string }
 export function SessionView({
   initial,
   visible,
@@ -66,7 +67,11 @@ export function SessionView({
   const [session, setSession] = useState(initial)
   const [subagents, setSubagents] = useState(initial.subagents)
   const subagentRevision = useRef(0)
-  const [draft, setDraft] = useState('')
+  const key = draftKey(session.workspace, session.state.sessionFile)
+  const [draftOwner, setDraftOwner] = useState(key)
+  const [draft, setDraft] = useState(() => readDraft(key))
+  if (draftOwner !== key) { setDraftOwner(key); setDraft(readDraft(key)) }
+  useEffect(() => { storeDraft(key, draft) }, [key, draft])
   const [requestNavigation, setRequestNavigation] = useState<{ requestId: string; sequence: number }>()
   const [references, setReferences] = useState<string[]>([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -537,6 +542,10 @@ export function SessionView({
       const path = action.path
       setReferences(old => old.includes(path) ? old : [...old, path])
     }
+    if (action.name === 'quote' && action.text) {
+      const quote = action.text.split(/\r?\n/).map(line => `> ${line}`).join('\n')
+      setDraft(old => (old ? old + '\n\n' : '') + quote + '\n\n')
+    }
     if (action.name === 'rename') setRename(session.state.sessionName || '')
     if (action.name === 'fork') void showBranches()
     if (action.name === 'clone') void run('clone')
@@ -866,6 +875,7 @@ export function SessionView({
             modelProvider={session.state.model?.provider}
             onSubagentDraft={draftSubagentGuidance}
             requestNavigation={requestNavigation}
+            searchJump={action?.handle === handle && action.name === 'jump' ? action : undefined}
           />
         ) : (
           <div className="empty-state">

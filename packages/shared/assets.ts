@@ -8,7 +8,7 @@ export interface Attachment {
 }
 export type AttachmentInput = { path: string } | { name: string; bytes: Uint8Array }
 export type FileOperation =
-  | { type: 'create'; directory: string; name: string; folder: boolean }
+  | { type: 'create'; directory: string; name: string; folder: boolean; content?: string }
   | { type: 'rename'; path: string; name: string }
   | { type: 'trash'; path: string }
   | { type: 'copy'; paths: string[]; directory: string }
