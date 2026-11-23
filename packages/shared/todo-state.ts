@@ -7,6 +7,13 @@ export interface TodoTask {
   activeForm?: string
   blockedBy?: number[]
 }
+export interface TodoSummary {
+  availability: 'enabled' | 'disabled' | 'unavailable'
+  total: number
+  completed: number
+  revision: string
+}
+export const TODO_PAGE_SIZE = 24
 export interface TodoState {
   availability: 'enabled' | 'disabled' | 'unavailable'
   tasks: TodoTask[]
@@ -46,22 +53,47 @@ export function projectTodos(
   if (!enabled) return { availability: 'disabled', tasks: [] }
   if (!data || !Array.isArray(data.entries)) return { availability: 'unavailable', tasks: [] }
   const entries = new Map(data.entries.map((entry) => [entry.id, entry]))
-  const branch: any[] = [],
-    seen = new Set<string>()
-  let id = data.leafId
+  return branchTodos(data.leafId, id => entries.get(id))
+}
+
+export const TODO_WIDGET = '__pi_desktop_todos_v1__'
+
+export function parseTodoWidget(line: unknown): TodoSummary {
+  if (typeof line === 'string' && line.length <= 512 * 1024) {
+    try {
+      const state = JSON.parse(line)
+      if (state?.availability === 'enabled' && Number.isSafeInteger(state.total) && state.total >= 0 &&
+          Number.isSafeInteger(state.completed) && state.completed >= 0 && state.completed <= state.total && typeof state.revision === 'string')
+        return { availability: 'enabled', total: state.total, completed: state.completed, revision: state.revision }
+    } catch { /* ignore malformed optional plugin state */ }
+  }
+  return { availability: 'unavailable', total: 0, completed: 0, revision: '' }
+}
+
+export function todoGroups(tasks: TodoTask[]) {
+  return {
+    active: [...tasks.filter(t => t.status === 'in_progress'), ...tasks.filter(t => t.status === 'pending')],
+    completed: tasks.filter(t => t.status === 'completed'),
+  }
+}
+
+/** Walk Pi's in-memory parent index; unrelated messages never cross RPC. */
+export function branchTodos(id: string | null, getEntry: (id: string) => any): TodoState {
+  const seen = new Set<string>()
+  let legacy: TodoTask[] | undefined
   while (id) {
-    if (seen.has(id) || !entries.has(id)) return { availability: 'unavailable', tasks: [] }
+    const entry = getEntry(id)
+    if (seen.has(id) || !entry) return { availability: 'unavailable', tasks: [] }
     seen.add(id)
-    const entry = entries.get(id)
-    branch.push(entry)
+    if (entry.type === 'custom' && entry.customType === 'rpiv-todo-state') {
+      const current = tasks(entry.data)
+      if (current) { legacy = current; break }
+    }
+    if (!legacy && entry.type === 'message' && entry.message?.role === 'toolResult' && entry.message.toolName === 'todo')
+      legacy = tasks(entry.message.details)
     id = entry.parentId
   }
-  let custom: TodoTask[] | undefined, legacy: TodoTask[] | undefined
-  for (const entry of branch.reverse()) {
-    if (entry.type === 'custom' && entry.customType === 'rpiv-todo-state')
-      custom = tasks(entry.data) ?? custom
-    if (entry.type === 'message' && entry.message?.role === 'toolResult' && entry.message.toolName === 'todo')
-      legacy = tasks(entry.message.details) ?? legacy
-  }
-  return { availability: 'enabled', tasks: (custom ?? legacy ?? []).filter((t) => t.status !== 'deleted') }
+  return { availability: 'enabled', tasks: (legacy ?? []).filter(t => t.status !== 'deleted').map(
+    ({ id, subject, status, description, activeForm, blockedBy }) => ({ id, subject, status, description, activeForm, blockedBy })
+  ) }
 }

@@ -57,8 +57,17 @@ export class PiProcess {
     this.child = spawn(installation.node, args, {
       cwd,
       env,
-      stdio: 'pipe',
+      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
+    }) as ChildProcessWithoutNullStreams // fds 0–2 are pipes; fd 3 is Node IPC
+    this.child.on('message', (value: any) => {
+      if (value?.type !== 'desktop_todo_page') return
+      const pending = this.pending.get(value.id)
+      if (!pending) return
+      clearTimeout(pending.timer)
+      this.pending.delete(value.id)
+      if (Array.isArray(value.rows)) pending.resolve(value.rows)
+      else pending.reject(new Error('Task list changed'))
     })
     const lines = new JsonLines((record) => {
       if (record.type === 'response' && record.id && this.pending.has(record.id)) {
@@ -132,7 +141,10 @@ export class PiProcess {
         reject(new Error(`Pi timed out handling ${type}. Stop the operation or reopen the session.`))
       }, timeout)
       this.pending.set(id, { resolve, reject, timer })
-      void this.send({ ...args, type, id }).catch((error) => {
+      const sent = type === 'desktop_todo_page'
+        ? new Promise<void>((resolve, reject) => this.child.send({ ...args, type, id }, err => err ? reject(err) : resolve()))
+        : this.send({ ...args, type, id })
+      void sent.catch((error) => {
         clearTimeout(timer)
         this.pending.delete(id)
         reject(error)

@@ -4,6 +4,8 @@ import { basename, dirname, join, relative, isAbsolute } from 'node:path'
 import { randomUUID, createHash } from 'node:crypto'
 import type { Attachment, AttachmentInput, FileOperation } from '../../../packages/shared/assets'
 
+import { compressZip, extractZip } from './workspace-zip'
+
 const LIMIT = 32 * 1024 * 1024
 const hash = (data: Buffer) => createHash('sha256').update(data).digest('hex')
 export function imageMime(data: Buffer): string | undefined {
@@ -77,6 +79,17 @@ async function readBounded(path: string) {
   } finally {
     await file.close()
   }
+}
+export async function readWorkspacePdf(workspace: string, path: string) {
+  const data = await readBounded(await assetPath(workspace, path))
+  if (!/\.pdf$/i.test(path) || !data.subarray(0,1024).includes(Buffer.from('%PDF-'))) throw new Error('Invalid PDF')
+  return new Uint8Array(data)
+}
+export async function readWorkspaceImage(workspace: string, relativePath: string) {
+  const data = await readBounded(await assetPath(workspace, relativePath))
+  const mime = imageMime(data) || (data[0] === 0x42 && data[1] === 0x4d ? 'image/bmp' : undefined)
+  if (!mime) throw new Error('Unsupported or invalid image')
+  return `data:${mime};base64,${data.toString('base64')}`
 }
 type Owned = { workspace: string; owner: string; attachment: Attachment; digest: string; sent: boolean }
 export class WorkspaceAssets {
@@ -229,6 +242,11 @@ export class WorkspaceAssets {
             await rename(target, dest)
           }
         }
+      } else if (operation.type === 'compress' || operation.type === 'extract') {
+        const target = await assetPath(workspace, operation.path)
+        if (target === await realpath(workspace)) throw new Error('Cannot modify the workspace root')
+        if (operation.type === 'compress') await compressZip(target)
+        else await extractZip(target)
       } else if (operation.type === 'copy') {
         if (!Array.isArray(operation.paths) || !operation.paths.length || operation.paths.length > 100)
           throw new Error('Choose 1–100 files to paste')

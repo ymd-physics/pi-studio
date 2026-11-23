@@ -147,14 +147,14 @@ it('shows session tasks only when the todo plugin is enabled', () => {
   const view = render(
     <Composer
       {...p}
-      session={{ ...p.session, todo: { availability: 'enabled', tasks: [] } } as Snapshot}
+      session={{ ...p.session, todo: { availability: 'enabled', total: 0, completed: 0, revision: 'test' } } as Snapshot}
     />,
   )
   expect(screen.getByRole('button', { name: /Todo/ })).toBeTruthy()
   view.rerender(
     <Composer
       {...p}
-      session={{ ...p.session, todo: { availability: 'disabled', tasks: [] } } as Snapshot}
+      session={{ ...p.session, todo: { availability: 'disabled', total: 0, completed: 0, revision: '' } } as Snapshot}
     />,
   )
   expect(screen.queryByRole('button', { name: /Todo/ })).toBeNull()

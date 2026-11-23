@@ -19,7 +19,6 @@ import { SubagentFocusCard } from './SubagentFocusCard'
 import { requestForAgent, type SupervisorRequest } from './subagent-notices'
 import { ExtensionDialog } from './ExtensionDialog'
 import { MarkdownOrigin } from './MarkdownLinks'
-import { projectTodos } from '../../../../packages/shared/todo-state'
 import type { Attachment, AttachmentInput } from '../../../../packages/shared/assets'
 import type { CodexUsageSnapshot } from '../../../../packages/shared/codex-usage'
 import { supportsCodexFeatures } from '../../../../packages/shared/codex-model'
@@ -114,7 +113,6 @@ export function SessionView({
   const [sending, setSending] = useState(false)
   const [queued, setQueued] = useState(initial.queued || { steering: [], followUp: [] })
   const todoSequence = useRef(0)
-  const refreshVisibleTodo = useRef(() => {})
   const sessionRef = useRef(session)
   sessionRef.current = session
   const [notices, setNotices] = useState<SessionNotice[]>([])
@@ -329,33 +327,6 @@ export function SessionView({
     if (initial.state.isCompacting) setActivity(tracker.current.handle({ type: 'compaction_start' }))
     initial.ui?.forEach(ui)
     let contextTimer: ReturnType<typeof setTimeout> | undefined
-    let todoTimer: ReturnType<typeof setTimeout> | undefined
-    let todoBusy = false,
-      todoDirty = false
-    const refreshTodo = () => {
-      todoDirty = true
-      if (todoTimer || todoBusy || !visibleRef.current) return
-      todoTimer = setTimeout(async () => {
-        todoTimer = undefined
-        if (!alive.current || !visibleRef.current) return
-        todoDirty = false
-        todoBusy = true
-        const sequence = ++todoSequence.current
-        try {
-          const data = await command('get_entries')
-          if (alive.current && sequence === todoSequence.current)
-            setSession((old) => ({ ...old, todo: projectTodos(old.commands, data) }))
-        } catch {
-          /* native settlement/snapshot retries */
-        } finally {
-          todoBusy = false
-          if (todoDirty && alive.current) refreshTodo()
-        }
-      }, 250)
-    }
-    refreshVisibleTodo.current = () => {
-      if (sessionRef.current.todo?.availability !== 'disabled') refreshTodo()
-    }
     let hiddenMessages: Snapshot['messages'] | undefined
     const batch = new EventBatch(
       (event) => {
@@ -369,9 +340,6 @@ export function SessionView({
         )
           streamRevision.current++
         if (event.type === 'queue_update') setQueued({ steering: event.steering, followUp: event.followUp })
-        if (event.type === 'tool_execution_end' && sessionRef.current.todo?.availability !== 'disabled') {
-          refreshTodo()
-        }
         if (!paused.current) setActivity(tracker.current.view())
         if (event.type === 'message_end' && visibleRef.current && !contextTimer)
           contextTimer = setTimeout(() => {
@@ -422,12 +390,17 @@ export function SessionView({
         if (messages) setSession(old=>({...old,messages}))
         setActivity(tracker.current.view())
         if (syncOnReturn.current) {syncOnReturn.current=false;void sync().catch(showError)}
-        // The effective-visibility effect refreshes todos after React commits the resume.
         return
       }
       if (event.desktopSession !== handle) return
       if (event.type === 'desktop_request_answered') {
         uiRevision.current++; answered.current.add(event.id); setDialogs(queue=>queue.filter(r=>r.id!==event.id)); return
+      }
+      if (event.type === 'desktop_todo') {
+        todoSequence.current++
+        if (paused.current) syncOnReturn.current = true
+        else setSession(old => ({ ...old, todo: event.todo }))
+        return
       }
       if (event.type === 'desktop_subagents_status') {
         subagentRevision.current++
@@ -446,15 +419,10 @@ export function SessionView({
     return () => {
       alive.current = false
       batch.dispose()
-      refreshVisibleTodo.current = () => {}
       clearTimeout(contextTimer)
-      clearTimeout(todoTimer)
       off()
     }
   }, [handle])
-  useEffect(() => {
-    if (visible && !presentationPaused) refreshVisibleTodo.current()
-  }, [visible,presentationPaused])
   useEffect(() => {
     if (visible) {
       document.title = extensionTitle

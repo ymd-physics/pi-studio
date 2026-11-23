@@ -20,6 +20,7 @@ files:
   - resources/codex-compaction/**
   - resources/terminal/**
   - packages/shared/codex-model.ts
+  - packages/shared/todo-state.ts
 asarUnpack:
   - node_modules/node-pty/**
   - resources/desktop-session-guard.mjs
@@ -29,6 +30,7 @@ asarUnpack:
   - resources/codex-compaction/**
   - resources/terminal/**
   - packages/shared/codex-model.ts
+  - packages/shared/todo-state.ts
 asar: true
 npmRebuild: false
 mac:

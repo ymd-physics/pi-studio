@@ -277,6 +277,9 @@ export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose
   const t = useUiText()
   const close = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
+  const [naturalWidth, setNaturalWidth] = useState(0)
+  const [zoom, setZoom] = useState(0) // 0 fits the preview; other values are percentages of the original.
+  useEffect(() => { if (!item) { setZoom(0); setNaturalWidth(0) } }, [item])
   useEffect(() => {
     if (!item) return
     const previous = document.activeElement as HTMLElement | null
@@ -290,7 +293,7 @@ export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose
       if (event.key === 'Tab') {
         const items = [
           ...(panel.current?.querySelectorAll<HTMLElement>(
-            'button:not(:disabled),a[href],[tabindex="0"]',
+            'button:not(:disabled),select:not(:disabled),a[href],[tabindex="0"]',
           ) || []),
         ]
         if (!items.length) return
@@ -328,6 +331,10 @@ export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose
             <strong>{item.name}</strong>
             {item.meta && <small>{item.meta}</small>}
           </span>
+          {!!naturalWidth && <select className="image-zoom" aria-label={t('Image zoom')} title={t('Image zoom')} value={zoom} onChange={e => setZoom(Number(e.target.value))}>
+            <option value={0}>{t('Fit image')}</option>
+            {[50, 100, 150, 200].map(percent => <option key={percent} value={percent}>{percent}%</option>)}
+          </select>}
           <button
             ref={close}
             type="button"
@@ -338,7 +345,9 @@ export function ImageLightbox({ item, onClose }: { item?: LightboxImage; onClose
             <X size={18} />
           </button>
         </header>
-        <img src={item.src} alt={item.name} />
+        <div className="image-preview-area"><img src={item.src} alt={item.name}
+          onLoad={e => setNaturalWidth(e.currentTarget.naturalWidth)}
+          style={zoom ? {width: naturalWidth * zoom / 100, maxWidth: 'none', maxHeight: 'none'} : undefined} /></div>
       </div>
     </div>,
     document.body,

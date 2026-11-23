@@ -9,11 +9,11 @@ import type { BubbleState, BubbleChoice } from '../../../packages/shared/bubble'
 import { stripAnsi } from '../../../packages/shared/ansi'
 import { discoverPi, loadSessionManager, type PiInstallation } from './runtime'
 import { PiProcess } from './rpc'
-import { projectTodos } from '../../../packages/shared/todo-state'
+import { parseTodoWidget, projectTodos, TODO_WIDGET } from '../../../packages/shared/todo-state'
 import { supportsCodexFeatures } from '../../../packages/shared/codex-model'
 import { readPluginInventory } from './plugin-inventory'
 import { parseSubagentStatus, SUBAGENT_STATUS_WIDGET } from '../../../packages/shared/subagents'
-import { WorkspaceAssets, assetPath } from './workspace-assets'
+import { WorkspaceAssets, assetPath, readWorkspaceImage, readWorkspacePdf } from './workspace-assets'
 import type { AttachmentInput, FileOperation } from '../../../packages/shared/assets'
 import { workspaceFsListDir, workspaceFsReadText, resolvePathUnderWorkspace } from '../workspace-fs'
 
@@ -48,6 +48,7 @@ type LiveSession = {
   snapshot: Snapshot
   rpc?: PiProcess
   stopping?: Promise<void>
+  nativeTodo?: Snapshot['todo']
   epoch: number
   queue: Promise<unknown>
   pendingDialogs: Map<string, PiRecord>
@@ -448,6 +449,7 @@ export class DesktopService {
     this.assertRunning()
     const epoch = (session.epoch = ++this.epoch)
     session.snapshot.subagents = undefined
+    session.nativeTodo = undefined
     session.rpc = new PiProcess(
       this.installation,
       session.snapshot.workspace,
@@ -466,6 +468,14 @@ export class DesktopService {
           if (status) {
             session.snapshot.subagents = status
             this.event({ type: 'desktop_subagents_status', desktopSession: session.handle, desktopEpoch: epoch, status })
+          }
+          return
+        }
+        if (record.type === 'extension_ui_request' && record.method === 'setWidget' && record.widgetKey === TODO_WIDGET) {
+          session.nativeTodo = parseTodoWidget(record.widgetLines?.[0])
+          if (session.snapshot.todo && session.snapshot.todo.availability !== 'disabled') {
+            session.snapshot.todo = session.nativeTodo
+            this.event({ type: 'desktop_todo', desktopSession: session.handle, desktopEpoch: epoch, todo: session.nativeTodo })
           }
           return
         }
@@ -534,9 +544,7 @@ export class DesktopService {
       rpc.request('get_available_models'),
       rpc.request('get_session_stats').catch(() => ({})),
     ])
-    let todo = projectTodos(commands.commands || [])
-    if (todo.availability !== 'disabled')
-      todo = projectTodos(commands.commands || [], await rpc.request('get_entries').catch(() => undefined))
+    const capability = projectTodos(commands.commands || [])
     if (epoch !== session.epoch || session.rpc !== rpc) throw new Error('Session changed')
     const duplicate = [...this.pool.values()].find(
       (s) => s !== session && s.rpc && s.snapshot.state.sessionFile === state.sessionFile,
@@ -563,7 +571,7 @@ export class DesktopService {
       state,
       messages: history.messages,
       contextUsage: stats?.contextUsage,
-      todo,
+      todo: capability.availability !== 'disabled' && session.nativeTodo ? session.nativeTodo : { availability: capability.availability, total: 0, completed: 0, revision: '' },
       levels: levels.levels,
       commands: commands.commands,
       models: models.models,
@@ -669,6 +677,15 @@ export class DesktopService {
     )
   }
   async command(type: string, args: Record<string, unknown> = {}, handle?: string) {
+    if (type === 'desktop_todo_page') {
+      this.assertRunning()
+      const s = this.selected(handle)
+      this.authorize(s.snapshot.workspace)
+      if (!s.rpc || !handle || s.snapshot.todo?.availability !== 'enabled' || args.revision !== s.nativeTodo?.revision ||
+          !['active', 'completed'].includes(String(args.group)) || !Number.isSafeInteger(args.offset) || Number(args.offset) < 0)
+        throw new Error('Invalid or stale task page')
+      return s.rpc.request(type, { revision: args.revision, group: args.group, offset: args.offset }, 5000)
+    }
     if (!allowed.has(type)) throw new Error(`Unsupported desktop operation: ${type}`)
     const session = this.selected(handle)
     if (
@@ -889,6 +906,10 @@ export class DesktopService {
     })
     if (!result.ok) throw new Error(result.error)
     return result.entries
+  }
+  readPdfFile(path: string, handle: string) { return readWorkspacePdf(this.workspace(handle), path) }
+  readImageFile(path: string, handle: string) {
+    return readWorkspaceImage(this.workspace(handle), path)
   }
   async readFile(path: string, handle?: string) {
     return this.readWorkspaceFile(this.workspace(handle), path)

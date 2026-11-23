@@ -606,10 +606,20 @@ textarea {
 }
 .file-context-menu.menu {
   position: fixed;
-  width: 200px;
+  max-height: calc(100vh - 10px);
+  overflow-y: auto;
+  width: min(280px, calc(100vw - 8px));
   right: auto;
   z-index: 40;
 }
+.file-context-menu.menu button, .file-no-preview button {
+  display: flex; align-items: center; gap: 9px;
+}
+.file-context-menu.menu button { min-height: 29px; padding: 5px 8px; }
+.file-context-menu.menu svg, .file-no-preview svg { flex: none; color: var(--muted); }
+.file-context-menu.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 3px; }
+.file-no-preview { padding: 8px 12px 16px; color: var(--muted); }
+.file-no-preview button { color: var(--text); border: 1px solid var(--line); }
 .send-controls {
   display: flex;
   align-items: center;
@@ -1184,6 +1194,8 @@ button.context-toggle:active {
   font-size: 9px;
 }
 .image-lightbox {
+  /* A tall image puts the close button over Electron's native title-bar drag region. */
+  -webkit-app-region: no-drag;
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -1198,8 +1210,8 @@ button.context-toggle:active {
 .image-lightbox-panel {
   display: flex;
   flex-direction: column;
-  width: min(1200px, 96vw);
-  max-height: 94vh;
+  width: min(960px, 100%);
+  max-height: 100%;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -1235,13 +1247,29 @@ button.context-toggle:active {
   color: var(--muted);
   font-size: 10px;
 }
+.image-zoom {
+  margin-left: auto;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--secondary);
+  background: var(--sidebar);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
 .image-lightbox-close {
   flex-shrink: 0;
 }
-.image-lightbox-panel > img {
+.image-preview-area {
+  min-height: 0;
+  max-height: min(680px, 70vh);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.image-preview-area > img {
   display: block;
   max-width: 100%;
-  max-height: calc(94vh - 58px);
+  max-height: min(680px, 70vh);
   width: auto;
   height: auto;
   margin: 0 auto;
@@ -2068,6 +2096,7 @@ button.context-toggle:active {
   padding: 12px;
   font-size: 12px;
 }
+.file-heading-actions { display: flex; align-items: center; gap: 2px; }
 .file-panel .panel-heading {
   padding: 0 4px 10px;
 }
@@ -2163,6 +2192,8 @@ button.context-toggle:active {
   min-height: 0;
   font-size: 12px;
 }
+.file-image-preview > button { display: block; width: 100%; padding: 0; cursor: zoom-in; }
+.file-image-preview img { display: block; margin: auto; max-width: 100%; max-height: 55vh; object-fit: contain; }
 .file-preview .code-block {
   margin: 0;
 }
@@ -2238,9 +2269,6 @@ button.context-toggle:active {
   }
   .image-lightbox {
     padding: 12px;
-  }
-  .image-lightbox-panel > img {
-    max-height: calc(94vh - 58px);
   }
   .model-controls select {
     max-width: 150px;

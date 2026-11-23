@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A minimal desktop frontend for your installed Pi",
   "main": "./out/main/index.js",
   "author": "YM",
@@ -34,7 +34,9 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "shell-env": "^4.0.3",
-    "shiki": "^1.24.4"
+    "shiki": "^1.24.4",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   },
   "overrides": {
     "katex": "$katex"
@@ -46,11 +48,14 @@
     "@types/node": "^22.20.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^43.7.7",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0",
     "jsdom": "^25.0.1",
+    "pdfjs-dist": "^6.5.438",
     "typescript": "5.7",
     "vite": "^8.1.3",
     "vitest": "^4.1.11"

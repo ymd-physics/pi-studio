@@ -1,5 +1,5 @@
 import type { CodexUsageSnapshot } from './codex-usage'
-import type { TodoState } from './todo-state'
+import type { TodoSummary } from './todo-state'
 import type { Attachment, AttachmentInput, FileOperation } from './assets'
 import type { ImageThumbnail, ImageThumbnailSize } from './images'
 import type { TerminalInfo, TerminalTransport } from './terminal'
@@ -108,7 +108,7 @@ export interface ContextUsage {
 export interface Snapshot {
   subagents?: import('./subagents').SubagentStatus
   contextUsage?: ContextUsage
-  todo?: TodoState
+  todo?: TodoSummary
   queued?: { steering: string[]; followUp: string[] }
   handle: string
   ui?: PiRecord[]
@@ -160,6 +160,8 @@ export interface DesktopAPI {
   pasteAttachments(handle: string): Promise<Attachment[]>
   discardAttachment(handle: string, id: string): Promise<void>
   pathForFile(file: File): string
+  readPdfFile(path: string, handle: string): Promise<Uint8Array>
+  readImageFile(path: string, handle: string): Promise<string>
   openFileExternally(handle: string, path: string): Promise<void>
   copyFile(handle: string, path: string): Promise<void>
   copyIntoWorkspace(workspace: string, directory: string, paths: string[]): Promise<void>

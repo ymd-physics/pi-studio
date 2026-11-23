@@ -41,7 +41,15 @@ test('native Review Sheet preserves scope, drafts and context across sessions; e
     await expect(dialog).toBeVisible()
     await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled()
     const exact = 'Use this exact extension-defined response'
-    await page.getByRole('radio', { name: exact, exact: true }).check()
+    // A visible choice row includes the space next to the inspector. A single
+    // click there must select (but never submit) the corresponding option.
+    const option = dialog.locator('.review-option').filter({has: page.getByRole('radio', {name: exact, exact:true})})
+    const row = await option.boundingBox()
+    const point = { x: row.x + row.width - 3, y: row.y + row.height / 2 }
+    const target = await page.evaluate(({x,y}) => document.elementFromPoint(x,y)?.closest('label')?.querySelector('input')?.getAttribute('aria-label') ?? null, point)
+    expect(target, 'The padded end of the choice should belong to its label').toBe(exact)
+    await page.mouse.click(point.x, point.y)
+    await expect(page.getByRole('radio', { name: exact, exact: true })).toBeChecked()
     await expect(page.locator('.session-notice').filter({ hasText: 'Review answer:' })).toHaveCount(0)
     const optionGeometry = await page.locator('.review-option').first().evaluate(el => ({
       radio: el.querySelector('input').getBoundingClientRect().width,

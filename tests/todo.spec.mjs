@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test'
-import { readFile, writeFile } from 'node:fs/promises'
+import { appendFile, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createFixture } from './fixture.mjs'
 
@@ -14,6 +14,13 @@ test('reads real rpiv-todo state and restores it per native session', async () =
     const settings = JSON.parse(await readFile(join(fixture.agentDir, 'settings.json'), 'utf8'))
     settings.extensions = [process.env.PI_DESKTOP_TEST_TODO]
     settings.defaultTools.push('todo')
+    // A compacted session retains its old entries on disk. A full get_entries
+    // response for this fixture would exceed the Studio RPC framing limit.
+    const { activeSession } = JSON.parse(await readFile(join(fixture.dataDir, 'preferences.json'), 'utf8'))
+    const lines = (await readFile(activeSession, 'utf8')).trimEnd().split('\n')
+    const leaf = JSON.parse(lines.at(-1))
+    await appendFile(activeSession, JSON.stringify({ type: 'custom', customType: 'old-extension-data',
+      id: 'feedbeef', parentId: leaf.id, timestamp: new Date().toISOString(), data: 'x'.repeat(33 * 1024 * 1024) }) + '\n')
     await writeFile(join(fixture.agentDir, 'settings.json'), JSON.stringify(settings))
     app = await electron.launch({
       args: process.env.PI_DESKTOP_TEST_EXECUTABLE ? [] : ['.'],

@@ -17,6 +17,11 @@
   padding: 0 15px 14px;
   min-height: 0;
 }
+.todo-done-toggle {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 8px; color: var(--muted); font: inherit;
+}
+.todo-done-toggle[aria-expanded='true'] svg { transform: rotate(90deg); }
 /* Programmatic reading focus is not a keyboard tab stop. */
 .conversation[tabindex='-1']:focus {
   outline: none;
@@ -194,13 +199,12 @@
   color: var(--secondary);
 }
 .review-option {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 7px;
+  align-items: stretch;
   margin-bottom: 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding-right: 7px;
 }
 .review-option:has(input:checked) {
   background: var(--accent-soft);
@@ -213,7 +217,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 12px;
+  padding: 11px 40px 11px 12px;
+}
+/* Keep inspection a separate action; all other space inside the row selects. */
+.review-option > .request-inspect {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .review-option input {
   flex-shrink: 0;

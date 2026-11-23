@@ -1,5 +1,10 @@
 import { expect, it } from 'vitest'
-import { projectTodos } from './todo-state'
+import { projectTodos, todoGroups } from './todo-state'
+it('keeps plan order within each group and puts running work first', () => {
+  const groups = todoGroups((['pending', 'completed', 'in_progress', 'pending', 'in_progress'] as const).map((status, id) => ({ status, id, subject: String(id) })))
+  expect(groups.active.map(t => t.id)).toEqual([2, 4, 0, 3])
+  expect(groups.completed.map(t => t.id)).toEqual([1])
+})
 const commands = [
   {
     name: 'todos',

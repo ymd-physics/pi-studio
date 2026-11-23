@@ -285,7 +285,7 @@ export function Composer({
                 ),
               )}
             </select>
-            {session.todo?.availability === 'enabled' && <TodoButton state={session.todo} />}
+            {session.todo?.availability === 'enabled' && <TodoButton key={session.handle} handle={session.handle} state={session.todo} />}
           </div>
           <div className="send-controls">
             <ContextMeter usage={session.contextUsage} />

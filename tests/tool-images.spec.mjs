@@ -11,7 +11,7 @@ const launch = (fixture) => electron.launch({
 async function prepareImages(app, fixture) {
   // Actual local rasters with visible borders, including the reported 832:96 ratio.
   const images = await app.evaluate(({ nativeImage }) =>
-    [['sample.png', 832, 96], ['portrait.png', 120, 240], ['landscape.png', 240, 150]].map(([name, width, height]) => {
+    [['sample.png', 832, 96], ['portrait.png', 900, 1600], ['landscape.png', 240, 150]].map(([name, width, height]) => {
       const bytes = Buffer.alloc(width * height * 4)
       for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
         const offset = (y * width + x) * 4
@@ -140,11 +140,28 @@ test('compact tool image disclosure and lightbox are display-only and independen
     await expect(dialog).toBeVisible()
     await expect(dialog.locator('img')).toHaveAttribute('src', `data:image/png;base64,${images[0].data}`)
     await expect(dialog.getByRole('button', { name: 'Close image' })).toBeFocused()
+    await expect(dialog.getByRole('combobox', { name: 'Image zoom' })).toBeVisible()
     await page.keyboard.press('Tab')
-    await expect(dialog.getByRole('button', { name: 'Close image' })).toBeFocused()
+    await expect(dialog.getByRole('combobox', { name: 'Image zoom' })).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
     await expect(opener).toBeFocused()
+    const tall = grid.getByRole('button', { name: 'Open portrait.png' })
+    await tall.click()
+    const large = page.getByRole('dialog', { name: 'Image: portrait.png' })
+    const cross = large.getByRole('button', { name: 'Close image' })
+    await expect(large.locator('img')).toBeVisible()
+    const zoom = large.getByRole('combobox', {name:'Image zoom'})
+    const fitted = await large.locator('img').boundingBox()
+    expect(fitted.height).toBeLessThanOrEqual(Math.min(680, await page.evaluate(() => innerHeight * .7)) + 1)
+    await zoom.selectOption('100')
+    expect(await large.locator('img').evaluate(img => img.clientWidth === img.naturalWidth)).toBe(true)
+    await zoom.selectOption('200')
+    expect(await large.locator('.image-preview-area').evaluate(el => { el.scrollTop = el.scrollHeight; return el.scrollTop > 0 && el.scrollWidth > el.clientWidth })).toBe(true)
+    await zoom.selectOption('0')
+    await expect.poll(async () => (await large.locator('img').boundingBox()).height).toBe(fitted.height)
+    await expect(large).toHaveCSS('-webkit-app-region', 'no-drag')
+    await cross.click(); await expect(large).toHaveCount(0); await expect(tall).toBeFocused()
     for (const dark of [false, true]) {
       await page.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), dark)
       for (const width of [1280, 680]) {

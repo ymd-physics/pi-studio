@@ -7,37 +7,27 @@ afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
 })
-it('opens tasks at the bottom, preserves reading position on updates and dismisses outside/Escape', () => {
-  vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(900)
-  const state: any = {
-    availability: 'enabled',
-    tasks: Array.from({ length: 30 }, (_, id) => ({ id, subject: `Task ${id}`, status: 'completed' })),
-  }
-  const view = render(
-    <>
-      <TodoButton state={state} />
-      <button>Outside</button>
-    </>,
-  )
-  fireEvent.click(screen.getByRole('button', { name: /Todo/ }))
-  const scroll = view.container.querySelector('.todo-scroll') as HTMLElement
-  expect(scroll.scrollTop).toBe(900)
-  scroll.scrollTop = 100
-  view.rerender(
-    <>
-      <TodoButton
-        state={{ ...state, tasks: [...state.tasks, { id: 31, subject: 'New', status: 'pending' }] }}
-      />
-      <button>Outside</button>
-    </>,
-  )
-  expect(scroll.scrollTop).toBe(100)
-  fireEvent.pointerDown(screen.getByText('Outside'))
-  expect(screen.queryByLabelText('Session todo')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: /Todo/ }))
-  expect((view.container.querySelector('.todo-scroll') as HTMLElement).scrollTop).toBe(900)
-  fireEvent.keyDown(screen.getByRole('button', { name: /Todo/ }), { key: 'Escape' })
-  expect(screen.queryByLabelText('Session todo')).toBeNull()
+it('fetches only on open, pages past five tasks and loads completed items separately', async () => {
+  const command = vi.fn(async (_type, { group, offset }) => Array.from({ length: group === 'completed' || offset ? 1 : 24 }, (_, n) => ({ id: offset+n+1, status: group === 'completed' ? 'completed' : 'pending', subject: `${group} ${offset+n+1}` })))
+  vi.stubGlobal('desktop', { command })
+  try {
+    render(<><TodoButton handle="a" state={{ availability: 'enabled', revision: 'r', total: 26, completed: 1 }} /><button>Outside</button></>)
+    expect(command).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /Todo/ }))
+    await screen.findByText('active 8')
+    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }))
+    await screen.findByText('active 25')
+    expect(command).toHaveBeenCalledTimes(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Completed (1)' }))
+    await screen.findByText('completed 1')
+    fireEvent.pointerDown(screen.getByText('Outside'))
+    expect(screen.queryByLabelText('Session todo')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Todo/ }))
+    await screen.findByText('active 1')
+    expect(screen.queryByText('completed 1')).toBeNull()
+    fireEvent.keyDown(screen.getByRole('button', { name: /Todo/ }), { key: 'Escape' })
+    expect(screen.queryByLabelText('Session todo')).toBeNull()
+  } finally { vi.unstubAllGlobals() }
 })
 it('full text is available even below character thresholds; inspection never grants permission', () => {
   const answer = vi.fn(),

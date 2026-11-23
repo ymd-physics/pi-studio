@@ -11,4 +11,5 @@ export type FileOperation =
   | { type: 'create'; directory: string; name: string; folder: boolean; content?: string }
   | { type: 'rename'; path: string; name: string }
   | { type: 'trash'; path: string }
+  | { type: 'compress' | 'extract'; path: string }
   | { type: 'copy'; paths: string[]; directory: string }
