@@ -4,6 +4,26 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { Files } from './Files'
 vi.mock('./Markdown', () => ({ CodeBlock: () => null, Markdown: () => null }))
 afterEach(cleanup)
+it('reloads clean text but preserves a draft when the disk changes again', async () => {
+  let disk = 'original'
+  window.desktop = {
+    files: async () => [{name:'note.txt', path:'note.txt', isDirectory:false}],
+    fileStamp: async () => disk,
+    readFile: async () => ({content:disk, revision:disk}),
+  } as unknown as typeof window.desktop
+  render(<Files handle="A" close={() => {}} onDirty={() => {}} />)
+  fireEvent.click(await screen.findByRole('button', {name:'note.txt'}))
+  fireEvent.click(await screen.findByRole('button', {name:'Edit'}))
+  const editor = screen.getByRole('textbox', {name:'File editor'}) as HTMLTextAreaElement
+  disk = 'first rewrite'
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+  expect(editor.value).toBe(disk)
+  await act(async () => { fireEvent.change(editor, {target:{value:'my draft'}}) })
+  disk = 'second rewrite'
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+  expect(editor.value).toBe('my draft')
+  expect(screen.getByRole('region', {name:'File changed on disk'}).textContent).toContain(disk)
+})
 it('starts a terminal in the selected folder or the parent of the selected file', async () => {
   const openTerminal = vi.fn(async () => {})
   window.desktop = { files: async (directory: string) => directory ? [{ name:'notes.md', path:'docs/notes.md', isDirectory:false }] : [{ name:'docs', path:'docs', isDirectory:true }] } as unknown as typeof window.desktop

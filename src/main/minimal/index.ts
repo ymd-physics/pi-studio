@@ -233,6 +233,7 @@ else {
         command: (type, args, handle) => service.command(type, args, handle),
         respond: (record) => service.respond(record),
         files: (path, handle) => service.files(path, handle),
+        fileStamp: (path, handle) => service.fileStamp(path, handle),
         readPdfFile: (path, handle) => service.readPdfFile(path, handle),
         readImageFile: (path, handle) => service.readImageFile(path, handle),
         readFile: (path, handle) => service.readFile(path, handle),

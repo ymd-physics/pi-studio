@@ -80,15 +80,18 @@ test('bounded permission details, timeline notices, confirmed working delete and
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = async () => ({ response: 0 })
     })
-    await page.getByRole('button', { name: 'Remove Research' }).click()
+    await page.getByRole('button', { name: 'Workspace information for Research' }).click()
+    const remove = page.getByRole('dialog', { name: 'Workspace information' }).getByRole('button', { name: 'Remove workspace…' })
+    await remove.click()
+    await expect(remove).toBeEnabled()
     expect(second.every(alive)).toBe(true)
-    await expect(page.getByRole('button', { name: 'Remove Research' })).toBeVisible()
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = async () => ({ response: 1 })
     })
-    await page.getByRole('button', { name: 'Remove Research' }).click()
+    await remove.click()
     await expect.poll(() => second.some(alive), { timeout: 15000 }).toBe(false)
-    await expect(page.getByRole('button', { name: 'Remove Research' })).toHaveCount(0)
+    await expect(remove).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Workspace information for Research' })).toHaveCount(0)
   } finally {
     if (app) {
       await app

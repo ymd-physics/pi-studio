@@ -93,13 +93,16 @@ it('manually pages many entries, preserves identity across reordering and cycles
   expect(screen.getByText('agent-38')).toBeTruthy()
 })
 
-it('retains waiting, failed, paused and stopped entries without auto-dismissal', () => {
+it('expires failed entries but keeps waiting, paused, stopped and queued entries', () => {
   const agents = (['waiting', 'failed', 'paused', 'stopped', 'queued'] as const).map(state => agent(state, { state }))
   render(<SubagentFocusCard active status={status(...agents)} />)
-  expect(vi.getTimerCount()).toBe(0)
-  advance(60_000)
+  advance(9_000)
   expect(screen.getByText('0 running · 1 queued · 5 total')).toBeTruthy()
-  for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'Next agent' }))
+  advance(1_000)
+  expect(vi.getTimerCount()).toBe(0)
+  expect(screen.getByText('0 running · 1 queued · 4 total')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '2 needs attention' })).toBeTruthy()
+  for (let i = 0; i < 2; i++) fireEvent.click(screen.getByRole('button', { name: 'Next agent' }))
   expect(screen.getByText('Stopped')).toBeTruthy()
   expect(screen.getByText('1m 00s')).toBeTruthy()
 })

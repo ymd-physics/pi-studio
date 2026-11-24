@@ -4,11 +4,12 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { useUiText } from './language'
 
 // Render just the current page to a canvas. No scripts, form controls or annotation editor.
-export default function FilePdfPreview({ path, handle }: { path: string; handle: string }) {
+export default function FilePdfPreview({ path, handle, revision }: { path: string; handle: string; revision: number }) {
   const t = useUiText(), canvas = useRef<HTMLCanvasElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy>(), [page, setPage] = useState(1), [error, setError] = useState(false)
   useEffect(() => {
     let live = true, stop: (() => void) | undefined
+    setError(false); setDoc(undefined)
     void window.desktop.readPdfFile(path, handle).then(async data => {
       if (!live) return
       const port = new Worker(workerUrl, {type:'module'}), worker = PDFWorker.create({port})
@@ -16,10 +17,10 @@ export default function FilePdfPreview({ path, handle }: { path: string; handle:
       const loading = getDocument({data, worker, cMapUrl:base+'cmaps/',standardFontDataUrl:base+'standard_fonts/', wasmUrl:base+'wasm/',iccUrl:base+'iccs/', useWorkerFetch:false, maxImageSize:32*1024*1024})
       stop = () => { void loading.destroy().finally(() => {worker.destroy(); port.terminate()}).catch(() => {}) }
       const pdf = await loading.promise
-      if (live) setDoc(pdf)
+      if (live) { setPage(p => Math.min(p, pdf.numPages)); setDoc(pdf) }
     }).catch(() => { if (live) setError(true) })
     return () => { live = false; stop?.() }
-  }, [path,handle])
+  }, [path,handle,revision])
   useEffect(() => {
     if (!doc || !canvas.current) return
     let live = true, task: RenderTask | undefined

@@ -50,6 +50,7 @@ const api: DesktopAPI = {
   command: (type, args, handle) => invoke('command', type, args, handle),
   respond: (response) => invoke('respond', response),
   files: (path, handle) => invoke('files', path, handle),
+  fileStamp: (path, handle) => invoke('fileStamp', path, handle),
   readPdfFile: (path, handle) => invoke('readPdfFile', path, handle),
   readImageFile: (path, handle) => invoke('readImageFile', path, handle),
   readFile: (path, handle) => invoke('readFile', path, handle),

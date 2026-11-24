@@ -160,6 +160,7 @@ export interface DesktopAPI {
   pasteAttachments(handle: string): Promise<Attachment[]>
   discardAttachment(handle: string, id: string): Promise<void>
   pathForFile(file: File): string
+  fileStamp(path: string, handle: string): Promise<string>
   readPdfFile(path: string, handle: string): Promise<Uint8Array>
   readImageFile(path: string, handle: string): Promise<string>
   openFileExternally(handle: string, path: string): Promise<void>

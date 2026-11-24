@@ -73,6 +73,9 @@ export function Files({
   const [conflict, setConflict] = useState<{file: string; disk: string}>()
   const [saving, setSaving] = useState(false)
   const [reading, setReading] = useState(false)
+  const stamp = useRef<string>()
+  const [mediaRevision, setMediaRevision] = useState(0)
+  const [refreshFailed, setRefreshFailed] = useState(false)
   const generation = useRef(0)
   const saveActive = useRef(false)
   useEffect(
@@ -100,10 +103,48 @@ export function Files({
       current = false
     }
   }, [active, directory, refresh, handle, refreshKey])
+  // Only stat the visible file; transfer its contents only after a change. Rechecking
+  // the path (rather than watching its inode) also catches atomic replacements.
+  useEffect(() => {
+    if (!active || !file || !handle || file === unsupported || saving || reading) return
+    const id = generation.current
+    let live = true, busy = false
+    const current = () => live && id === generation.current && !saveActive.current && !document.hidden
+    const check = async () => {
+      if (!current() || busy) return
+      busy = true
+      try {
+        const next = await window.desktop.fileStamp(file, handle)
+        if (!current()) return
+        if (next !== stamp.current) {
+          if (readOnlyPreview(file)) setMediaRevision(n => n + 1)
+          else {
+            const disk = await window.desktop.readFile(file, handle)
+            if (!current()) return
+            if (disk.revision !== revision && dirty) setConflict({file, disk: disk.content})
+            else {
+              setConflict(undefined)
+              if (disk.revision !== revision) {
+                setRevision(disk.revision); setSaved(disk.content); setDraft(disk.content)
+              }
+            }
+          }
+          stamp.current = next
+        }
+        setRefreshFailed(false)
+      } catch { if (current()) setRefreshFailed(true) }
+      finally { busy = false }
+    }
+    void check()
+    const timer = window.setInterval(check, 1500)
+    document.addEventListener('visibilitychange', check)
+    return () => { live = false; clearInterval(timer); document.removeEventListener('visibilitychange', check) }
+  }, [active, file, handle, unsupported, saving, reading, revision, dirty])
   const discard = () => !dirty || window.confirm(t('Discard unsaved file changes?'))
   const open = async (entry: FileEntry) => {
     if (saveActive.current || !discard()) return
     setConflict(undefined)
+    setRefreshFailed(false)
     const id = ++generation.current
     setError('')
     setReading(false)
@@ -114,12 +155,16 @@ export function Files({
       setSaved('')
       return
     }
-    if (readOnlyPreview(entry.path)) {
-      setFile(entry.path); setSaved(''); setDraft(''); setRevision(''); setEditing(false)
-      return
-    }
     setReading(true)
     try {
+      // Sample before reading, so a rewrite during the first load is not missed.
+      const initial = handle ? await window.desktop.fileStamp(entry.path, handle) : undefined
+      if (id !== generation.current) return
+      stamp.current = initial
+      if (readOnlyPreview(entry.path)) {
+        setFile(entry.path); setMediaRevision(n => n + 1); setSaved(''); setDraft(''); setRevision(''); setEditing(false)
+        return
+      }
       const result = await window.desktop.readFile(entry.path, handle)
       if (id !== generation.current) return
       setFile(entry.path)
@@ -374,6 +419,7 @@ export function Files({
           {error}
         </div>
       )}
+      {file && refreshFailed && <p role="status">{t('Cannot refresh this file. The last preview or draft is kept.')}</p>}
       {conflict && conflict.file === file && <section className="file-conflict" aria-label={t('File changed on disk')}>
         <strong>{t('File changed on disk')}</strong>
         <details><summary>{t('Compare versions')}</summary><b>{t('On disk')}</b><pre>{conflict.disk}</pre><b>{t('My draft')}</b><pre>{draft}</pre></details>
@@ -410,14 +456,17 @@ export function Files({
           {unsupported === file ? <div className="file-no-preview">
             <p role="status">{t('Pi Studio can’t preview this file format.')}</p>
             <button disabled={!handle || saving} onClick={() => void operate('external', {path:file, name:file.split('/').at(-1)!, isDirectory:false})}><ExternalLink size={14} aria-hidden="true"/> {t('Open with default application')}</button>
-          </div> : isPdf(file) ? handle && <Suspense fallback={<p role="status">{t('Loading PDF…')}</p>}><FilePdfPreview key={`${handle}:${file}`} path={file} handle={handle}/></Suspense> : isPreviewImage(file) ? handle && <FileImagePreview key={`${handle}:${file}`} path={file} handle={handle} /> : editing ? (
+          </div> : isPdf(file) ? handle && <Suspense fallback={<p role="status">{t('Loading PDF…')}</p>}><FilePdfPreview key={`${handle}:${file}`} path={file} handle={handle} revision={mediaRevision}/></Suspense> : isPreviewImage(file) ? handle && <FileImagePreview key={`${handle}:${file}`} path={file} handle={handle} revision={mediaRevision} /> : editing ? (
             <textarea
               disabled={reading || saving}
               aria-label={t("File editor")}
               className="file-editor"
               spellCheck={false}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                if (conflict && e.target.value === saved) stamp.current = undefined
+                setDraft(e.target.value)
+              }}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 's') {
                   e.preventDefault()

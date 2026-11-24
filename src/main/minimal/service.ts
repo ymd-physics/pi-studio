@@ -907,6 +907,13 @@ export class DesktopService {
     if (!result.ok) throw new Error(result.error)
     return result.entries
   }
+  async fileStamp(path: string, handle: string) {
+    const resolved = await resolvePathUnderWorkspace(this.workspace(handle), path)
+    if (!resolved.ok) throw new Error(resolved.error)
+    const info = await stat(resolved.abs, { bigint: true })
+    if (!info.isFile()) throw new Error('Not a file')
+    return `${info.dev}:${info.ino}:${info.size}:${info.ctimeNs}:${info.mtimeNs}`
+  }
   readPdfFile(path: string, handle: string) { return readWorkspacePdf(this.workspace(handle), path) }
   readImageFile(path: string, handle: string) {
     return readWorkspaceImage(this.workspace(handle), path)

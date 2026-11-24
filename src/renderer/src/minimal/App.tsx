@@ -1,5 +1,6 @@
 import { MAX_PINNED_SESSIONS, MAX_PINNED_WORKSPACES } from '../../../../packages/shared/desktop'
 import { resolveTheme } from '../../../../packages/shared/themes'
+import { SessionHistoryList } from './SessionHistoryList'
 import { PinMark } from './PinMark'
 import { WorkspaceIcon } from './WorkspaceIcon'
 import { LanguageContext } from './language'
@@ -8,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus,
   FolderPlus,
+  ChevronRight,
   PanelLeft,
   X,
   Settings2,
@@ -86,6 +88,10 @@ export function App() {
   const [dropWorkspace, setDropWorkspace] = useState<string>()
   const [fileRevision, setFileRevision] = useState(0)
   const [filePanels, setFilePanels] = useState<Record<string, boolean>>({})
+  const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({})
+  const [openedAt, setOpenedAt] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem('pi-session-open-times') || '{}') || {} } catch { return {} }
+  })
   const [collapsed, setCollapsed] = useState<string[]>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('pi-collapsed-workspaces') || '[]')
@@ -127,6 +133,15 @@ export function App() {
   const navigating = useRef(false)
   const revision = useRef(0)
   const session = selected ? views[selected] : undefined
+  const selectedPath = session?.state.sessionFile
+  useEffect(() => {
+    if (!selectedPath) return
+    const time = Date.now()
+    setOpenedAt(old => ({ ...old, [selectedPath]: time }))
+  }, [selectedPath])
+  useEffect(() => {
+    try { localStorage.setItem('pi-session-open-times', JSON.stringify(openedAt)) } catch { /* sorting still works in memory */ }
+  }, [openedAt])
   const selectedTerminal = terminalSessions.find((terminal) => selected === `terminal:${terminal.id}`)
   const workspaceForNew =
     selectedTerminal?.workspace || session?.workspace ||
@@ -452,10 +467,67 @@ export function App() {
           </div>
           <nav aria-label={t("Workspaces and sessions")} className="workspace-list">
             {sortedWorkspaces.map((workspace) => {
+              const items = sessions[workspace.path] || []
+              const openPaths = new Set(running.filter(r => r.workspace === workspace.path).map(r => r.path))
+              const visible = (s: SessionInfo) => items.length <= 3 || !!s.pinned || s.path === selectedPath || openPaths.has(s.path)
+              const history = items.filter(s => !visible(s)).sort((a,b) => (openedAt[b.path] || 0) - (openedAt[a.path] || 0))
+              const expanded = !!expandedHistory[workspace.path]
               const waitingSessions = running.filter(
                 (live) => live.workspace === workspace.path && (waiting[live.handle] || 0) > 0,
               ).length
               const waitingLabel = t(waitingSessions === 1 ? '{count} session waiting for your response' : '{count} sessions waiting for your response', { count: waitingSessions })
+              const renderSession = (item: SessionInfo) => {
+                const live = running.find((r) => r.path === item.path && r.workspace === workspace.path)
+                const pendingRequests = live ? waiting[live.handle] || 0 : 0
+                const status = pendingRequests > 0 ? 'waiting' : live?.status || 'inactive'
+                const name = item.name || item.firstMessage || t('Untitled conversation')
+                return (
+                  <button
+                    className={`session-link ${session?.state.sessionFile === item.path ? 'selected' : ''}`}
+                    key={item.path}
+                    disabled={loading}
+                    aria-current={session?.state.sessionFile === item.path ? 'page' : undefined}
+                    data-status={status}
+                    title={`${name} · ${pendingRequests ? t(pendingRequests === 1 ? 'Waiting for your response · {count} pending request' : 'Waiting for your response · {count} pending requests', { count: pendingRequests }) : t(status)}`}
+                    onClick={() => void navigate(workspace.path, item.path)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setContext({
+                        workspace: workspace.path,
+                        item,
+                        x: Math.min(e.clientX, window.innerWidth - 238),
+                        y: Math.min(e.clientY, window.innerHeight - 380),
+                      })
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+                        e.preventDefault()
+                        const r = e.currentTarget.getBoundingClientRect()
+                        setContext({
+                          workspace: workspace.path,
+                          item,
+                          x: Math.min(r.right, window.innerWidth - 238),
+                          y: Math.min(r.top, window.innerHeight - 380),
+                        })
+                      }
+                    }}
+                  >
+                    <span
+                      className={`session-status is-${status}`}
+                      aria-label={pendingRequests ? t('Waiting for your response') : t(status)}
+                    >
+                      {pendingRequests ? (
+                        <MessageCircleMore size={14} aria-hidden="true" />
+                      ) : status === 'working' ? (
+                        <LoaderCircle size={12} className="spin" />
+                      ) : (
+                        <Circle size={9} fill="currentColor" strokeWidth={0} />
+                      )}
+                    </span>
+                    <span className="session-label">{name}</span>{item.pinned && <PinMark size={11} aria-label={t('Pinned session')} style={{flexShrink:0, color:'var(--muted)'}}/>}
+                  </button>
+                )
+              }
               return (
                 <section key={workspace.path} className="workspace">
                   <div
@@ -517,7 +589,7 @@ export function App() {
                       <WorkspaceIcon name="info" />
                     </button>
                     <button
-                      className="icon-button"
+                      className="icon-button workspace-secondary-action"
                       disabled={loading}
                       title={t("New conversation or terminal")}
                       aria-label={t('New session in {name}', { name: workspace.name })}
@@ -536,89 +608,14 @@ export function App() {
                     >
                       <WorkspaceIcon name="create" />
                     </button>
-                    <button
-                      className="icon-button remove-workspace workspace-secondary-action"
-                      disabled={loading}
-                      aria-label={t('Remove {name}', { name: workspace.name })}
-                      title={t('Remove {name}', { name: workspace.name })}
-                      onClick={async () => {
-                        if (
-                          dirtyPanels[workspace.path] &&
-                          !window.confirm(t('Discard unsaved file changes?'))
-                        )
-                          return
-                        try {
-                          const next = await window.desktop.removeWorkspace(workspace.path)
-                          setPreferences(next)
-                          prefs.current = next
-                          if (next.workspaces.some((w) => w.path === workspace.path)) return // native confirmation cancelled
-                          setFilePanels(old => { const next={...old}; delete next[workspace.path]; return next })
-                          setDirtyPanels(old => { const next={...old}; delete next[workspace.path]; return next })
-                          for (const live of running.filter((r) => r.workspace === workspace.path))
-                            discardView(live.handle)
-                          setRunning(await window.desktop.runningSessions())
-                          await refreshSessions()
-                        } catch (e) {
-                          showError(e)
-                        }
-                      }}
-                    >
-                      <WorkspaceIcon name="remove" />
-                    </button>
                   </div>
-                  {!collapsed.includes(workspace.path) &&
-                    (sessions[workspace.path] || []).map((item) => {
-                      const live = running.find((r) => r.path === item.path && r.workspace === workspace.path)
-                      const pendingRequests = live ? waiting[live.handle] || 0 : 0
-                      const status = pendingRequests > 0 ? 'waiting' : live?.status || 'inactive'
-                      const name = item.name || item.firstMessage || t('Untitled conversation')
-                      return (
-                        <button
-                          className={`session-link ${session?.state.sessionFile === item.path ? 'selected' : ''}`}
-                          key={item.path}
-                          disabled={loading}
-                          aria-current={session?.state.sessionFile === item.path ? 'page' : undefined}
-                          data-status={status}
-                          title={`${name} · ${pendingRequests ? t(pendingRequests === 1 ? 'Waiting for your response · {count} pending request' : 'Waiting for your response · {count} pending requests', { count: pendingRequests }) : t(status)}`}
-                          onClick={() => void navigate(workspace.path, item.path)}
-                          onContextMenu={(e) => {
-                            e.preventDefault()
-                            setContext({
-                              workspace: workspace.path,
-                              item,
-                              x: Math.min(e.clientX, window.innerWidth - 238),
-                              y: Math.min(e.clientY, window.innerHeight - 380),
-                            })
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
-                              e.preventDefault()
-                              const r = e.currentTarget.getBoundingClientRect()
-                              setContext({
-                                workspace: workspace.path,
-                                item,
-                                x: Math.min(r.right, window.innerWidth - 238),
-                                y: Math.min(r.top, window.innerHeight - 380),
-                              })
-                            }
-                          }}
-                        >
-                          <span
-                            className={`session-status is-${status}`}
-                            aria-label={pendingRequests ? t('Waiting for your response') : t(status)}
-                          >
-                            {pendingRequests ? (
-                              <MessageCircleMore size={14} aria-hidden="true" />
-                            ) : status === 'working' ? (
-                              <LoaderCircle size={12} className="spin" />
-                            ) : (
-                              <Circle size={9} fill="currentColor" strokeWidth={0} />
-                            )}
-                          </span>
-                          <span className="session-label">{name}</span>{item.pinned && <PinMark size={11} aria-label={t('Pinned session')} style={{flexShrink:0, color:'var(--muted)'}}/>}
-                        </button>
-                      )
-                    })}
+                  {!collapsed.includes(workspace.path) && items.filter(visible).map(renderSession)}
+                  {!collapsed.includes(workspace.path) && history.length > 0 && <>
+                    <button className="history-fold" aria-expanded={expanded} onClick={() => setExpandedHistory(old => ({...old, [workspace.path]: !expanded}))}>
+                      <ChevronRight size={12} aria-hidden="true"/><span>{t('Other sessions')}</span><span>{history.length}</span>
+                    </button>
+                    {expanded && <SessionHistoryList>{history.map(renderSession)}</SessionHistoryList>}
+                  </>}
                   {!collapsed.includes(workspace.path) && terminalSessions.filter((terminal) => terminal.workspace === workspace.path).map((terminal) => (
                     <button key={`terminal:${terminal.id}`} className={`session-link terminal-link ${selectedTerminal?.id === terminal.id ? 'selected' : ''}`}
                       data-terminal-id={terminal.id} aria-current={selectedTerminal?.id === terminal.id ? 'page' : undefined}
@@ -842,6 +839,19 @@ export function App() {
       {workspaceSearch && <WorkspaceSearch workspace={workspaceSearch} close={() => setWorkspaceSearch(undefined)} open={async (path, term, snippet) => { const next = await navigate(workspaceSearch.path, path); if (next) { setAction(term ? {handle:next.handle, name:'jump', sequence:Date.now(), text:term, snippet} : undefined); setWorkspaceSearch(undefined) } }} />}
       {workspaceInfo && <WorkspaceInfo key={workspaceInfo.path} workspace={preferences?.workspaces.find((workspace) => workspace.path === workspaceInfo.path) || workspaceInfo}
         onClose={() => setWorkspaceInfo(undefined)} loadPlugins={loadWorkspacePlugins}
+        onRemove={async () => {
+          if (loading) return
+          const { path } = workspaceInfo
+          if (dirtyPanels[path] && !window.confirm(t('Discard unsaved file changes?'))) return
+          const next = await window.desktop.removeWorkspace(path)
+          setPreferences(next); prefs.current = next
+          if (next.workspaces.some(w => w.path === path)) return // native confirmation cancelled
+          setWorkspaceInfo(undefined)
+          setFilePanels(old => { const next = {...old}; delete next[path]; return next })
+          setDirtyPanels(old => { const next = {...old}; delete next[path]; return next })
+          for (const live of running.filter(r => r.workspace === path)) discardView(live.handle)
+          try { setRunning(await window.desktop.runningSessions()); await refreshSessions() } catch (e) { showError(e) }
+        }}
         pinLimitReached={(preferences?.workspaces.filter(w => w.pinned).length ?? 0) >= MAX_PINNED_WORKSPACES}
         onPin={async pinned => { const next = await window.desktop.pinWorkspace(workspaceInfo.path, pinned); setPreferences(next); prefs.current = next }}
         onRename={async (name) => { const next = await window.desktop.renameWorkspace(workspaceInfo.path, name); setPreferences(next); prefs.current = next }}

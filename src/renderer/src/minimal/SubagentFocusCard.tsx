@@ -11,6 +11,7 @@ const labels: Record<SubagentCard['state'], string> = {
 const icons = { running: LoaderCircle, queued: Clock, waiting: MessageSquareWarning, complete: Check, failed: CircleAlert, stopped: Square, paused: Pause, unknown: CircleAlert }
 const timestamp = (value: number | undefined) => value !== undefined && Number.isFinite(value) && value >= 0 ? value : undefined
 const terminal = (agent: SubagentCard) => ['complete', 'failed', 'stopped', 'paused', 'unknown'].includes(agent.state)
+const autoDismiss = (agent: SubagentCard) => agent.state === 'complete' || agent.state === 'failed'
 const attention = (agent: SubagentCard) => ['waiting', 'failed', 'paused', 'unknown'].includes(agent.state)
 
 export function SubagentFocusCard({ status, active, requestForAgent, onRequest }: { status: SubagentStatus | undefined; active: boolean; requestForAgent?: (agent: SubagentCard) => string | undefined; onRequest?: (id: string) => void }) {
@@ -37,10 +38,10 @@ export function SubagentFocusCard({ status, active, requestForAgent, onRequest }
   }, [status])
 
   const snapshot = status?.error ? known : status?.availability === 'available' ? status : undefined
-  const agents = (snapshot?.agents ?? []).filter(agent => agent.state !== 'complete' || now < (observedEnds.get(agent.id)?.state === agent.state ? observedEnds.get(agent.id)!.time : timestamp(agent.endedAt) ?? now) + 10_000)
+  const agents = (snapshot?.agents ?? []).filter(agent => !autoDismiss(agent) || now < (observedEnds.get(agent.id)?.state === agent.state ? observedEnds.get(agent.id)!.time : timestamp(agent.endedAt) ?? now) + 10_000)
   const index = Math.max(0, agents.findIndex(agent => agent.id === selectedId))
   const agent = agents[index]
-  const needsTimer = agents.some(item => (!status?.error && item.state === 'running') || item.state === 'complete')
+  const needsTimer = agents.some(item => (!status?.error && item.state === 'running') || autoDismiss(item))
 
   useEffect(() => {
     if (!active || !needsTimer) return
