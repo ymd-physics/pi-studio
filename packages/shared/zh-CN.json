@@ -2,6 +2,8 @@
   "Quote in conversation…": "引用到会话…",
   "Save draft as…": "另存我的草稿…",
   "Cannot refresh this file. The last preview or draft is kept.": "暂时无法刷新文件，已保留当前预览或草稿。",
+  "The Studio interface stopped again.": "Studio 界面再次意外停止。",
+  "Reload interface": "重新加载界面",
   "File changed on disk": "文件已在其他地方修改",
   "Compare versions": "比较两个版本",
   "On disk": "磁盘上的版本",

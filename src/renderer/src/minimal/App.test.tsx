@@ -125,6 +125,76 @@ it.each(['metaKey', 'ctrlKey'])('keeps scoped creation and %s+N without a full-w
   expect(open).toHaveBeenLastCalledWith('/second', undefined)
 })
 
+it('joins the switch refresh and repeats only after an invalidation, without publishing obsolete lists', async () => {
+  const open = setupSidebar([{ path: '/first', name: 'First' }])
+  const listeners = new Set<(event: any) => void>()
+  window.desktop.onEvent = listener => { listeners.add(listener); return () => { listeners.delete(listener) } }
+  const publish = (event: any) => listeners.forEach(listener => listener(event))
+  window.desktop.open = vi.fn(async (workspace) => {
+    const next = await open(workspace)
+    publish({ type: 'desktop_sessions_changed', sessions: [{ handle: next.handle, workspace, path: next.state.sessionFile, status: 'active' }] })
+    return next
+  })
+  render(<App />)
+  await waitFor(() => expect(window.desktop.terminals).toHaveBeenCalled())
+  const lists = vi.mocked(window.desktop.sessions)
+  const pending: ((items: any[]) => void)[] = []
+  lists.mockImplementation(() => new Promise(resolve => pending.push(resolve)))
+  fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
+  await screen.findByRole('textbox', { name: 'Message Pi' })
+  await act(async () => {})
+  expect(lists).toHaveBeenCalledTimes(2) // Boot, then one shared event/navigation request.
+  act(() => {
+    publish({ type: 'desktop_workspace_run', path: '/first', at: 1 })
+    publish({ type: 'desktop_workspace_run', path: '/first', at: 2 })
+  })
+  expect(lists).toHaveBeenCalledTimes(2)
+  await act(async () => { pending.shift()!([{ path: '/first/history.jsonl', name: 'Obsolete' }]) })
+  expect(lists).toHaveBeenCalledTimes(3)
+  expect(screen.queryByTitle('Obsolete · inactive')).toBeNull()
+  await act(async () => { pending.shift()!([{ path: '/first/history.jsonl', name: 'Fresh' }]) })
+  await screen.findByTitle('Fresh · inactive')
+  expect((screen.getByRole('textbox', { name: 'Message Pi' }) as HTMLTextAreaElement).disabled).toBe(false)
+  // Completed results are not cached; focus must still discover external changes.
+  fireEvent.focus(window)
+  await waitFor(() => expect(lists).toHaveBeenCalledTimes(4))
+  await act(async () => { pending.shift()!([{ path: '/first/history.jsonl', name: 'External change' }]) })
+  await screen.findByTitle('External change · inactive')
+})
+
+it('retries session-list discovery after a failed shared request', async () => {
+  setupSidebar([{ path: '/first', name: 'First' }])
+  render(<App />)
+  await waitFor(() => expect(window.desktop.terminals).toHaveBeenCalled())
+  const lists = vi.mocked(window.desktop.sessions)
+  lists.mockRejectedValueOnce(new Error('Temporary read failure'))
+  fireEvent.focus(window)
+  expect((await screen.findByRole('alert')).textContent).toContain('Temporary read failure')
+  lists.mockResolvedValueOnce([{ path: '/first/recovered.jsonl', name: 'Recovered' }] as any)
+  fireEvent.focus(window)
+  await screen.findByTitle('Recovered · inactive')
+  expect(lists).toHaveBeenCalledTimes(3)
+})
+
+it('does not lose an invalidation when the obsolete list request fails', async () => {
+  setupSidebar([{ path: '/first', name: 'First' }])
+  let publish!: (event: any) => void
+  window.desktop.onEvent = listener => { publish = listener; return () => {} }
+  render(<App />)
+  await waitFor(() => expect(window.desktop.terminals).toHaveBeenCalled())
+  let fail!: (error: Error) => void
+  const lists = vi.mocked(window.desktop.sessions)
+  lists.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject }))
+    .mockResolvedValueOnce([{ path: '/first/latest.jsonl', name: 'Latest' }] as any)
+  fireEvent.focus(window)
+  await waitFor(() => expect(lists).toHaveBeenCalledTimes(2))
+  act(() => publish({ type: 'desktop_workspace_run', path: '/first', at: 3 }))
+  await act(async () => { fail(new Error('Obsolete read failed')) })
+  await screen.findByTitle('Latest · inactive')
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(lists).toHaveBeenCalledTimes(3)
+})
+
 it('keeps first-use workspace guidance without creating an unscoped session', async () => {
   const open = setupSidebar([])
   render(<App />)
@@ -133,6 +203,64 @@ it('keeps first-use workspace guidance without creating an unscoped session', as
   expect(screen.queryByRole('button', { name: 'New conversation' })).toBeNull()
   fireEvent.keyDown(window, { key: 'n', metaKey: true })
   expect(open).not.toHaveBeenCalled()
+})
+
+it('renames another session without navigating or changing the current draft, including cancellation and retry', async () => {
+  const open = setupSidebar([{ path: '/first', name: 'First' }])
+  let name = 'History'
+  window.desktop.sessions = vi.fn(async () => [{ path: '/first/history.jsonl', name }] as any)
+  const renameSession = vi.fn(async (_workspace, _path, nextName) => {
+    name = nextName
+    return { handle: 'history', workspace: '/first', state: { sessionFile: '/first/history.jsonl', sessionName: name }, messages: [], commands: [], models: [], levels: [] }
+  })
+  Object.assign(window.desktop, { renameSession })
+  const original = HTMLDialogElement.prototype.showModal
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+  try {
+    render(<App />)
+    await screen.findByRole('button', { name: 'New session in First' })
+    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
+    const input = await screen.findByRole('textbox', { name: 'Message Pi' })
+    fireEvent.change(input, { target: { value: 'keep my draft' } })
+    await waitFor(() => expect((screen.getByTitle('History · inactive') as HTMLButtonElement).disabled).toBe(false))
+    const rename = async () => {
+      fireEvent.contextMenu(screen.getByTitle('History · inactive'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Rename session' }))
+      await screen.findByRole('dialog', { name: 'Rename session' })
+      expect(open).toHaveBeenCalledTimes(1)
+      expect((input as HTMLTextAreaElement).value).toBe('keep my draft')
+    }
+    await rename()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(renameSession).not.toHaveBeenCalled()
+    await rename()
+    renameSession.mockRejectedValueOnce(new Error('Try again'))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Session name' }), { target: { value: 'Named history' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('Try again')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await screen.findByTitle('Named history · inactive')
+    expect(renameSession).toHaveBeenLastCalledWith('/first', '/first/history.jsonl', 'Named history')
+    expect(open).toHaveBeenCalledTimes(1)
+    expect((input as HTMLTextAreaElement).value).toBe('keep my draft')
+    expect(screen.queryByRole('dialog', { name: 'Rename session' })).toBeNull()
+  } finally { HTMLDialogElement.prototype.showModal = original }
+})
+
+it('updates terminal indicators from native running and prompt-ready events even while unselected', async () => {
+  setupSidebar()
+  const terminal = { id: 'terminal-state', name: 'Terminal', workspace: '/first', cwd: '/first', shell: '/bin/zsh', state: 'ready', mode: 'command' }
+  let publish!: (event: any) => void
+  window.desktop.onEvent = (listener) => { publish = listener; return () => {} }
+  window.desktop.terminals = vi.fn(async () => [{ ...terminal }] as any)
+  render(<App />)
+  const ready = await screen.findByLabelText('Terminal ready')
+  expect(ready.getAttribute('data-state')).toBe('ready')
+  expect(document.querySelector('.terminal-link.selected')).toBeNull()
+  act(() => publish({ type: 'desktop_terminal_sessions', terminals: [{ ...terminal, state: 'running', mode: 'direct' }] }))
+  expect(screen.getByLabelText('Terminal running').getAttribute('data-state')).toBe('running')
+  act(() => publish({ type: 'desktop_terminal_sessions', terminals: [{ ...terminal }] }))
+  expect(screen.getByLabelText('Terminal ready').getAttribute('data-state')).toBe('ready')
 })
 
 it('creates, renames, clears and closes a temporary terminal independently of AI sessions', async () => {

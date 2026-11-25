@@ -16,7 +16,8 @@ export function applyMessageEvent(messages: Message[], event: PiRecord): Message
   if (index < 0) return messages
   if (event.message) return messages.map((message, i) => (i === index ? event.message : message))
   const update = event.assistantMessageEvent
-  if (!update || !Number.isInteger(update.contentIndex)) return messages
+  if (typeof update?.type !== 'string' || !Number.isInteger(update.contentIndex) || update.contentIndex < 0) return messages
+  if (update.type === 'toolcall_end' && update.toolCall?.type !== 'toolCall') return messages
   const message = messages[index]
   const blocks: ContentBlock[] = Array.isArray(message.content) ? message.content.slice() : []
   const old = blocks[update.contentIndex]

@@ -87,7 +87,7 @@ test('real Pi: terminal history, in-place continuation, commands, tools, files a
     await writeFile(join(fixture.workspace, 'example.py'), 'external change')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(
-      page.getByRole('complementary', { name: 'Workspace files' }).getByRole('alert'),
+      page.getByRole('complementary', { name: 'Workspace files' }).getByRole('region', { name: 'File changed on disk' }),
     ).toContainText('File changed on disk')
     await expect(page.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved draft')
     await app.evaluate(({ dialog, BrowserWindow }) => {

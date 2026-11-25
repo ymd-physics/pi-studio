@@ -56,6 +56,12 @@ source "''' + str(probe.ROOT / 'resources/terminal/zsh-integration.zsh') + '''"
         assert plain(data).count('Completed ·') == 1, data
         data = submit(shell, "printf '%s\\n' '你好'\nprintf '%s\\n' 'second line'")
         assert '你好' in plain(data) and plain(data).count('Completed ·') == 1, data
+        # Simulate old start timestamps, not clock changes or real multi-day waits.
+        for seconds, expected in [(61, '1 m 01 s'), (3661, '1 h 01 m 01 s'), (90061, '1 d 01 h 01 m 01 s')]:
+            data = submit(shell, f'_terminal_proof_started=$(( EPOCHREALTIME - {seconds} ))')
+            assert 'Completed · ' + expected in plain(data), data
+        data = submit(shell, '_terminal_proof_started=$(( EPOCHREALTIME - 3661 )); false')
+        assert 'Exit 1 · 1 h 01 m 01 s' in plain(data), data
         # Alternate screen is untouched; the footer is emitted after native restoration.
         data = submit(shell, "printf '\\033[?1049hFULLSCREEN\\033[?1049l'")
         assert data.index(b'\x1b[?1049l') < data.index(b'Completed'), data

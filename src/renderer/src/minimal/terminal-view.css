@@ -46,12 +46,14 @@
 .terminal-view__status i, .terminal-live-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #458061; }
 .dark .terminal-view__status i, .dark .terminal-live-dot { background: #90bb9f; }
 .terminal-live-dot { margin-left: auto; }
+.terminal-live-dot[data-state=running] { background: #b78f2b; }
+.dark .terminal-live-dot[data-state=running] { background: #e3bf6b; }
 .terminal-link > svg { flex-shrink: 0; }
 .terminal-output-menu.menu { position: fixed; width: 192px; min-width: 0; z-index: 8; }
 .terminal-output-menu button { font-size: 12px; }
 .workspace-creation-menu p { margin: 6px 10px 9px; color: var(--muted); font-size: 11px; }
 .terminal-actions-menu [role=separator] { height: 1px; margin: 5px 8px; background: var(--line); }
-.terminal-name-dialog::backdrop { background: #00000030; backdrop-filter: blur(3px); }
+.terminal-name-dialog::backdrop, .session-name-dialog::backdrop { background: #00000030; backdrop-filter: blur(3px); }
 @media (max-width: 1000px) { .terminal-view__body { padding: 16px 24px 28px; } }
 @media (max-width: 760px) {
   .terminal-view__body { padding: 14px 16px 24px; gap: 10px; }

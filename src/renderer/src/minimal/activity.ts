@@ -259,10 +259,10 @@ export class ActivityTracker {
       this.lastAssistant = key
       const blocks = Array.isArray(message.content) ? message.content : []
       for (const block of blocks)
-        if (block.type === 'toolCall' && block.id && !this.state.tools[block.id])
+        if (block?.type === 'toolCall' && block.id && !this.state.tools[block.id])
           this.state.tools[block.id] = { status: 'pending' }
       for (let i = 0; i < blocks.length; i++) {
-        if (blocks[i].type !== 'thinking') continue
+        if (blocks[i]?.type !== 'thinking') continue
         const start = i
         while (blocks[i + 1]?.type === 'thinking') i++
         const generating = event.type !== 'message_end' && i === blocks.length - 1

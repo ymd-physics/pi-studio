@@ -139,6 +139,7 @@ export interface DesktopAPI {
   terminal: TerminalTransport
   addWorkspace(): Promise<Preferences>
   pinSession(workspace: string, path: string, pinned: boolean): Promise<void>
+  renameSession(workspace: string, path: string, name: string): Promise<Snapshot>
   pinWorkspace(path: string, pinned: boolean): Promise<Preferences>
   renameWorkspace(path: string, name: string): Promise<Preferences>
   removeWorkspace(path: string): Promise<Preferences>

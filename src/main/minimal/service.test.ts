@@ -58,6 +58,45 @@ it('renames only the registered workspace display name and persists it', async (
   expect(service.preferences.workspaces[0].name).toBe('Physics')
 })
 
+it('renames background sessions through one native writer without changing active preferences', async () => {
+  const { service, dir } = await fixture()
+  const active = join(dir, 'active.jsonl'), other = join(dir, 'other.jsonl')
+  const names = new Map([[active, 'Active'], [other, 'Other']])
+  service.preferences.workspaces = [{ path: dir, name: 'test' }]
+  ;(service as any).sdk = { SessionManager: { list: async () => [...names].map(([path, name]) => ({ path, name, modified: new Date(), messageCount: 1 })) } }
+  const start = vi.fn(async (session: any) => {
+    session.rpc = { request: vi.fn(async (type: string, args: any) => {
+      if (type === 'set_session_name') { names.set(session.snapshot.state.sessionFile, args.name); return {} }
+      if (type === 'get_state') return { ...session.snapshot.state, sessionName: names.get(session.snapshot.state.sessionFile) }
+      if (type === 'get_messages') return { messages: [] }
+      return { levels: [], commands: [], models: [] }
+    }) }
+    await (service as any).refresh(session)
+  })
+  ;(service as any).start = start
+  const current = await service.open(dir, active)
+  const [renamed, again] = await Promise.all([
+    service.renameSession(dir, other, 'Background'),
+    service.renameSession(dir, other, 'Renamed again'),
+  ])
+  expect(renamed.handle).toBe(again.handle)
+  expect(start).toHaveBeenCalledTimes(2)
+  expect((await service.snapshot()).handle).toBe(current.handle)
+  expect(names.get(other)).toBe('Renamed again')
+  const saved = JSON.parse(await readFile(join(dir, 'preferences.json'), 'utf8'))
+  expect(saved.activeWorkspace).toBe(dir)
+  expect(saved.activeSession).toBe(active)
+  for (const name of ['', ' ', 'x'.repeat(201), null])
+    await expect(service.renameSession(dir, other, name as any)).rejects.toThrow('Name must')
+  await expect(service.renameSession(dir, undefined as any, 'Invalid')).rejects.toThrow('Invalid session path')
+  await expect(service.renameSession(dir, '/outside.jsonl', 'Invalid')).rejects.toThrow('does not belong')
+  await expect(service.renameSession('/unregistered', other, 'Invalid')).rejects.toThrow('not registered')
+  expect(start).toHaveBeenCalledTimes(2)
+  const selected = await service.open(dir, other)
+  expect(selected.handle).toBe(again.handle)
+  expect(selected.state.sessionName).toBe('Renamed again')
+})
+
 describe('file save ownership', () => {
   it('accepts exactly one concurrent save with the same revision', async () => {
     const { service, dir } = await fixture()

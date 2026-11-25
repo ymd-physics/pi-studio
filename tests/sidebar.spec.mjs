@@ -107,8 +107,9 @@ test('Workspaces heading replaces the global sidebar action while scoped creatio
             }),
           }
         })
-        expect(geometry).toEqual({ font: '13px', weight: '600', colorMatchesText: true, rule: '1px', gap: 8, mark: '54px', brandHeight: 79, addWidth: 24, addHeight: 24, overflow: false })
-        expect(await create.evaluate((button) => getComputedStyle(button).opacity)).toBe('1')
+        expect(geometry).toEqual({ font: '13px', weight: '600', colorMatchesText: true, rule: '0px', gap: 8, mark: '42px', brandHeight: 79, addWidth: 24, addHeight: 24, overflow: false })
+        await create.hover()
+        await expect(create).toHaveCSS('opacity', '1')
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
         await sidebar.screenshot({ path: `test-results/sidebar-header-${dark ? 'dark' : 'light'}-${width}.png` })
       }

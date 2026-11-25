@@ -56,7 +56,7 @@ export function projectTranscript(messages: Message[]): TranscriptRow[] {
     const bridge =
       !['length', 'error', 'aborted'].includes(message.stopReason || '') &&
       blocks.every(
-        (b) => b.type === 'thinking' || b.type === 'toolCall' || (b.type === 'text' && !b.text?.trim()),
+        (b) => !b || b.type === 'thinking' || b.type === 'toolCall' || (b.type === 'text' && !b.text?.trim()),
       )
     if (!bridge) {
       group = undefined
@@ -65,6 +65,9 @@ export function projectTranscript(messages: Message[]): TranscriptRow[] {
     const calls: ToolRow[] = []
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i]
+      // Delta-only updates address native slots, which may not all exist yet.
+      // Keep their indices stable for thought timing, disclosure keys and later deltas.
+      if (!block) continue
       if (block.type === 'thinking') {
         const start = i
         let text = block.thinking || ''

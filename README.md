@@ -24,12 +24,12 @@ Switch to the terminal in the same workspace to check the first five energy leve
 
    Then run `pi`, select a model, sign in, and try sending a message. Studio uses your local Pi installation; it doesn’t install or upgrade Pi for you. For plugins, browse **Packages** on the Pi website and follow the installation instructions for the one you want.
 
-2. Under **Releases → Assets**, download [`Pi-Studio-1.2.4-mac-arm64.dmg`](https://github.com/ymd-physics/pi-studio/releases/download/v1.2.4/Pi-Studio-1.2.4-mac-arm64.dmg). The `Source code` downloads are source archives, not installers.
+2. Under **Releases → Assets**, download [`Pi-Studio-1.2.5-mac-arm64.dmg`](https://github.com/ymd-physics/pi-studio/releases/download/v1.2.5/Pi-Studio-1.2.5-mac-arm64.dmg). The `Source code` downloads are source archives, not installers.
 
-3. Before installing, run this command in the folder containing the DMG. Compare the SHA-256 checksum with the one on the [1.2.4 release page](https://github.com/ymd-physics/pi-studio/releases/tag/v1.2.4). If they differ, delete the DMG and download it again from that page. Don’t install the mismatched copy.
+3. Before installing, run this command in the folder containing the DMG. Compare the SHA-256 checksum with the one on the [1.2.5 release page](https://github.com/ymd-physics/pi-studio/releases/tag/v1.2.5). If they differ, delete the DMG and download it again from that page. Don’t install the mismatched copy.
 
    ```sh
-   shasum -a 256 Pi-Studio-1.2.4-mac-arm64.dmg
+   shasum -a 256 Pi-Studio-1.2.5-mac-arm64.dmg
    ```
 
 4. Open the DMG, drag **Pi Studio.app** into **Applications**, eject the disk image, then launch Studio from Applications.

@@ -3,11 +3,13 @@ import { uiText } from '../../../packages/shared/language'
 import { app, net, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard, nativeImage } from 'electron'
 import { join, dirname, delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { writeFile } from 'node:fs/promises'
 import { shellEnv } from 'shell-env'
 import { mergeLoginShellEnvironment } from '../login-shell-environment'
 import { DesktopService } from './service'
 import { studioProfilePath } from './app-identity'
 import { TerminalService } from './terminal-service'
+import { namedConfirmationMessage } from './confirmation'
 import { CodexUsageService } from './codex-usage'
 import { copyFilePaths, pastedFilePaths } from './file-clipboard'
 import { resolveLocalLink, readLocalImage } from './local-links'
@@ -61,7 +63,7 @@ else {
         ]),
       )
       const presentation = new HiddenStream(record => {
-        if (window && !window.isDestroyed()) window.webContents.send('pi:event',record)
+        if (window && !window.isDestroyed() && !window.webContents.isCrashed()) window.webContents.send('pi:event',record)
       })
       service = new DesktopService(
         app.getPath('userData'),
@@ -157,8 +159,8 @@ else {
           const info = terminalService().list().find((item) => item.id === id)
           if (!info) { await terminalService().close(id); return true }
           const choice = await dialog.showMessageBox(window!, {
-            type: 'warning', message: t('Close this terminal?'),
-            detail: `${info.name}\n\n${t('Its shell and managed tasks will be stopped. The terminal entry and output will be discarded; workspace files and shell-managed command history will not be deleted.')}`,
+            type: 'warning', message: namedConfirmationMessage(t('Close this terminal?'), info.name),
+            detail: t('Its shell and managed tasks will be stopped. The terminal entry and output will be discarded; workspace files and shell-managed command history will not be deleted.'),
             buttons: [t('Cancel'), t('Close terminal')], defaultId: 0, cancelId: 0,
           })
           if (choice.response !== 1) return false
@@ -193,6 +195,7 @@ else {
           return trust.response === 1 ? service.addWorkspace(answer.filePaths[0]) : service.preferences
         },
         pinSession: (workspace, path, pinned) => service.pinSession(workspace, path, pinned),
+        renameSession: (workspace, path, name) => service.renameSession(workspace, path, name),
         pinWorkspace: (path, pinned) => service.pinWorkspace(path, pinned),
         renameWorkspace: (path, name) => service.renameWorkspace(path, name),
         removeWorkspace: async (path) => {
@@ -211,9 +214,12 @@ else {
         sessions: (workspace, query) => service.sessions(workspace, query),
         open: (workspace, session) => service.open(workspace, session),
         deleteSession: async (workspace, path) => {
+          const item = (await service.sessions(workspace)).find(item => item.path === path)
+          if (!item) throw new Error('Session does not belong to this workspace')
+          const name = item.name || item.firstMessage || t('Untitled conversation')
           const choice = await dialog.showMessageBox(window!, {
             type: 'warning',
-            message: t('Move this Pi session to Trash?'),
+            message: namedConfirmationMessage(t('Move this Pi session to Trash?'), name),
             detail: `${t('Any running work in this session will be aborted before removal. This removes the shared session from both Pi Studio and terminal Pi. Separate forks and clones are kept. You can restore the file from Trash.')}\n\n${path}`,
             buttons: [t('Cancel'), t('Move to Trash')],
             defaultId: 0,
@@ -360,28 +366,42 @@ else {
       })
       bubble=new BubbleWindow(window,service,here,paused=>paused?presentation.pause():presentation.resume())
       app.on('activate',()=>bubble?.activate())
-      window.webContents.on('render-process-gone', () => {
+      const host = window
+      const loadStudio = () => process.env.ELECTRON_RENDERER_URL ? host.loadURL(process.env.ELECTRON_RENDERER_URL) : host.loadFile(join(here, '../renderer/index.html'))
+      let lastAutoRecovery = -Infinity
+      window.webContents.on('render-process-gone', async (_event, details) => {
+        if (confirmedShutdown || quitting || host.isDestroyed()) return
+        // Keep only the latest incident; no session content or file paths.
+        void writeFile(join(app.getPath('userData'), 'last-renderer-exit.json'), JSON.stringify({ time: new Date().toISOString(), reason: details.reason, exitCode: details.exitCode })).catch(() => {})
         bubble?.restore()
         const previous = terminals
         terminals = undefined
-        if (!previous) return
-        retiringTerminals.add(previous)
-        void previous.shutdown().then(() => {
-          retiringTerminals.delete(previous)
-          if (!confirmedShutdown && !quitting && window && !window.isDestroyed()) terminals = createTerminalService()
-        }).catch((error) => {
+        try {
+          if (previous) {
+            retiringTerminals.add(previous)
+            await previous.shutdown()
+            retiringTerminals.delete(previous)
+            if (!confirmedShutdown && !quitting && !host.isDestroyed()) terminals = createTerminalService()
+          }
+        } catch (error) {
           // Keep failed cleanup reachable for confirmed quit/retry; do not silently
           // replace the owner of possibly live terminal processes after a crash.
           dialog.showErrorBox(t('Terminal cleanup needs attention'), String(error))
-        })
+        }
+        if (confirmedShutdown || quitting || host.isDestroyed()) return
+        if (performance.now() - lastAutoRecovery < 60_000) {
+          const { response } = await dialog.showMessageBox(host, { type: 'warning', message: t('The Studio interface stopped again.'), buttons: [t('Reload interface'), t('Cancel')], cancelId: 1 })
+          if (response !== 0 || confirmedShutdown || quitting || host.isDestroyed()) return
+        }
+        lastAutoRecovery = performance.now()
+        try { await loadStudio() } catch (e) { if (!host.isDestroyed() && !quitting) dialog.showErrorBox(t('Pi Studio could not start'), String(e)) }
       })
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       window.webContents.on('will-navigate', (event) => event.preventDefault())
       window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) =>
         callback(false),
       )
-      if (process.env.ELECTRON_RENDERER_URL) await window.loadURL(process.env.ELECTRON_RENDERER_URL)
-      else await window.loadFile(join(here, '../renderer/index.html'))
+      await loadStudio()
       window.on('close', (event) => {
         if (!quitting) {
           event.preventDefault()

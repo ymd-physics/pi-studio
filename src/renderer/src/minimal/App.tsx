@@ -38,6 +38,7 @@ import { version as appVersion } from '../../../../package.json'
 import { SessionView, type SessionAction } from './SessionView'
 import { TerminalView } from './TerminalView'
 import { TerminalNameDialog } from './TerminalNameDialog'
+import { SessionNameDialog } from './SessionNameDialog'
 import type { TerminalInfo } from '../../../../packages/shared/terminal'
 import { BubbleButton } from './BubbleButton'
 import { Files } from './Files'
@@ -117,6 +118,7 @@ export function App() {
   const loadGlobalPlugins = useCallback(() => window.desktop.plugins(), [])
   const loadWorkspacePlugins = useCallback(() => window.desktop.plugins(workspaceInfo!.path), [workspaceInfo?.path])
   const [context, setContext] = useState<Context>()
+  const [sessionRename, setSessionRename] = useState<Pick<Context, 'workspace' | 'item'>>()
   const [action, setAction] = useState<SessionAction>()
   const [creationMenu, setCreationMenu] = useState<{ workspace: string; x: number; y: number }>()
   const [terminalContext, setTerminalContext] = useState<{ id: string; x: number; y: number }>()
@@ -132,6 +134,7 @@ export function App() {
   prefs.current = preferences
   const navigating = useRef(false)
   const revision = useRef(0)
+  const refreshingSessions = useRef<Promise<void>>()
   const session = selected ? views[selected] : undefined
   const selectedPath = session?.state.sessionFile
   useEffect(() => {
@@ -165,14 +168,29 @@ export function App() {
       setError(String(e).replace(/^Error: (Error invoking remote method '[^']+': Error: )?/, '')),
     [],
   )
-  const refreshSessions = useCallback(async () => {
-    const id = ++revision.current
-    const lists = await Promise.all(
-      (prefs.current?.workspaces || []).map(
-        async (w) => [w.path, await window.desktop.sessions(w.path)] as const,
-      ),
-    )
-    if (id === revision.current) setSessions(Object.fromEntries(lists))
+  const refreshSessions = useCallback((invalidate = false): Promise<void> => {
+    if (invalidate) revision.current++
+    if (refreshingSessions.current) return refreshingSessions.current
+    // Share only in-flight work. New mutations require a fresh pass, not a
+    // cached result or another concurrent scan of every workspace's history.
+    const pending = Promise.resolve().then(async () => {
+      let id: number
+      do {
+        id = revision.current
+        try {
+          const lists = await Promise.all(
+            (prefs.current?.workspaces || []).map(
+              async (w) => [w.path, await window.desktop.sessions(w.path)] as const,
+            ),
+          )
+          if (id === revision.current) setSessions(Object.fromEntries(lists))
+        } catch (error) {
+          if (id === revision.current) throw error
+        }
+      } while (id !== revision.current)
+    }).finally(() => { refreshingSessions.current = undefined })
+    refreshingSessions.current = pending
+    return pending
   }, [])
   const refreshTerminals = useCallback(async () => {
     const id = ++terminalRevision.current
@@ -185,7 +203,7 @@ export function App() {
   const changed = useCallback(
     (snapshot: Snapshot) => {
       setViews((old) => (old[snapshot.handle] ? { ...old, [snapshot.handle]: snapshot } : old))
-      void refreshSessions().catch(showError)
+      void refreshSessions(true).catch(showError)
     },
     [refreshSessions, showError],
   )
@@ -255,7 +273,7 @@ export function App() {
     const off = window.desktop.onEvent((event) => {
       if (event.type === 'desktop_workspace_run') {
         setPreferences(old => old && ({...old, workspaces:old.workspaces.map(w => w.path === event.path ? {...w,lastRunAt:event.at} : w)}))
-        void refreshSessions().catch(showError)
+        void refreshSessions(true).catch(showError)
       }
       if (event.type === 'desktop_bubble_session') setSelected(event.desktopSession)
       if (event.type === 'desktop_codex_usage') setUsage(event.usage)
@@ -269,7 +287,7 @@ export function App() {
         setRunning(event.sessions)
         const handles = new Set(event.sessions.map((s: RunningSession) => s.handle))
         setViews((old) => Object.fromEntries(Object.entries(old).filter(([handle]) => handles.has(handle))))
-        void refreshSessions().catch(showError)
+        void refreshSessions(true).catch(showError)
       }
     })
     void window.desktop
@@ -281,7 +299,7 @@ export function App() {
         setRuntime(data.runtime)
         setUsage(await window.desktop.codexUsage())
         setRunning(await window.desktop.runningSessions())
-        await refreshSessions()
+        await refreshSessions(true)
         await refreshTerminals()
         if (data.preferences.activeWorkspace)
           await navigate(data.preferences.activeWorkspace, data.preferences.activeSession)
@@ -294,7 +312,7 @@ export function App() {
   }, [])
   useEffect(() => {
     const refresh = () => {
-      if (prefs.current) void refreshSessions().catch(showError)
+      if (prefs.current) void refreshSessions(true).catch(showError)
     }
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
@@ -364,7 +382,7 @@ export function App() {
       const next = await window.desktop.addWorkspace()
       setPreferences(next)
       prefs.current = next
-      await refreshSessions()
+      await refreshSessions(true)
     } catch (e) {
       showError(e)
     }
@@ -398,8 +416,12 @@ export function App() {
     if (!context) return
     const { item, workspace } = context
     setContext(undefined)
+    if (name === 'rename') {
+      setSessionRename({ workspace, item })
+      return
+    }
     if (name === 'pin') {
-      try { await window.desktop.pinSession(workspace, item.path, !item.pinned); await refreshSessions() }
+      try { await window.desktop.pinSession(workspace, item.path, !item.pinned); await refreshSessions(true) }
       catch (e) { showError(e) }
       return
     }
@@ -415,7 +437,7 @@ export function App() {
         if (name === 'delete') storeDraft(draftKey(workspace, item.path), '')
         discardView(live?.handle)
         setRunning(await window.desktop.runningSessions())
-        await refreshSessions()
+        await refreshSessions(true)
         if (name === 'delete') setNotice(t('Session moved to Trash. Separate forks and clones were kept.'))
       } catch (e) {
         showError(e)
@@ -631,7 +653,7 @@ export function App() {
                         setTerminalContext({ id: terminal.id, x: Math.min(rect.right, window.innerWidth - 238), y: Math.min(rect.top, window.innerHeight - 155) })
                       }}>
                       <Terminal size={13} aria-hidden="true" /><span className="session-label">{terminal.name}</span>
-                      <span className="terminal-live-dot" aria-label={t('Terminal {name}', { name: t(terminal.state) })} />
+                      <span className="terminal-live-dot" data-state={terminal.state} aria-label={t('Terminal {name}', { name: t(terminal.state) })} />
                     </button>
                   ))}
                   {!collapsed.includes(workspace.path) && !sessions[workspace.path]?.length && !terminalSessions.some((terminal) => terminal.workspace === workspace.path) && (
@@ -824,6 +846,11 @@ export function App() {
         <div role="separator" className="menu-separator" />
         <button role="menuitem" className="error-text" onClick={() => void closeTerminal(terminalContext.id)}><X size={14} />{t("Close terminal…")}</button>
       </div>}
+      {sessionRename && <SessionNameDialog key={sessionRename.item.path} name={sessionRename.item.name || ''}
+        onClose={() => setSessionRename(undefined)} onSave={async (name) => {
+          const next = await window.desktop.renameSession(sessionRename.workspace, sessionRename.item.path, name)
+          changed(next)
+        }} />}
       {terminalRename && <TerminalNameDialog key={terminalRename.id} name={terminalRename.name} onClose={() => setTerminalRename(undefined)}
         onSave={async (name) => { await window.desktop.renameTerminal(terminalRename.id, name); await refreshTerminals() }} />}
       {settings && preferences && <PreferencesPanel
@@ -850,7 +877,7 @@ export function App() {
           setFilePanels(old => { const next = {...old}; delete next[path]; return next })
           setDirtyPanels(old => { const next = {...old}; delete next[path]; return next })
           for (const live of running.filter(r => r.workspace === path)) discardView(live.handle)
-          try { setRunning(await window.desktop.runningSessions()); await refreshSessions() } catch (e) { showError(e) }
+          try { setRunning(await window.desktop.runningSessions()); await refreshSessions(true) } catch (e) { showError(e) }
         }}
         pinLimitReached={(preferences?.workspaces.filter(w => w.pinned).length ?? 0) >= MAX_PINNED_WORKSPACES}
         onPin={async pinned => { const next = await window.desktop.pinWorkspace(workspaceInfo.path, pinned); setPreferences(next); prefs.current = next }}

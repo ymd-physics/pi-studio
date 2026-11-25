@@ -64,6 +64,11 @@ export function SessionView({
   const syncOnReturn = useRef(false)
   visibleRef.current = visible && !paused.current
   const [session, setSession] = useState(initial)
+  useEffect(() => {
+    setSession(old => old.state.sessionName === initial.state.sessionName ? old : {
+      ...old, state: { ...old.state, sessionName: initial.state.sessionName },
+    })
+  }, [initial.state.sessionName])
   const [subagents, setSubagents] = useState(initial.subagents)
   const subagentRevision = useRef(0)
   const key = draftKey(session.workspace, session.state.sessionFile)

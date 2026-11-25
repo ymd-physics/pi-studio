@@ -36,6 +36,23 @@ zle -C _terminal_proof_pick complete-word _terminal_proof_pick
 PROMPT='' RPROMPT=''
 _terminal_proof_emit() { print -r -u $_terminal_proof_fd_number -- "$1" || _terminal_proof_disconnect }
 _terminal_proof_hex() { REPLY=$(print -rn -- "$1" | od -v -An -tx1 | tr -d ' \n'); }
+_terminal_proof_duration() {
+  local -F elapsed=$1
+  (( elapsed < 0 )) && elapsed=0
+  if (( elapsed < 60 )); then
+    printf -v REPLY '%.2f s' $elapsed
+    return
+  fi
+  # Long durations retain every completed second, not rounded minutes or hours.
+  local -i seconds=$(( elapsed ))
+  if (( seconds >= 86400 )); then
+    printf -v REPLY '%d d %02d h %02d m %02d s' $(( seconds / 86400 )) $(( seconds % 86400 / 3600 )) $(( seconds % 3600 / 60 )) $(( seconds % 60 ))
+  elif (( seconds >= 3600 )); then
+    printf -v REPLY '%d h %02d m %02d s' $(( seconds / 3600 )) $(( seconds % 3600 / 60 )) $(( seconds % 60 ))
+  else
+    printf -v REPLY '%d m %02d s' $(( seconds / 60 )) $(( seconds % 60 ))
+  fi
+}
 _terminal_proof_precmd() {
   local -i command_status=$?
   local -F elapsed
@@ -44,8 +61,8 @@ _terminal_proof_precmd() {
   if (( _terminal_proof_started > 0 )); then
     elapsed=$(( EPOCHREALTIME - _terminal_proof_started ))
     _terminal_proof_started=0
-    (( elapsed < 0 )) && elapsed=0
-    printf -v duration '%.2f s' $elapsed
+    _terminal_proof_duration "$elapsed"
+    duration=$REPLY
     if (( command_status == 0 )); then label="Completed · $duration"; else label="Exit $command_status · $duration"; fi
     width=$(( COLUMNS - ${#label} - 4 ))
     (( width < 3 )) && width=3

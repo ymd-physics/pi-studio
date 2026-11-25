@@ -40,6 +40,18 @@ compdef _proofargs proofcmd
     const ready = () => vi.waitFor(() => expect(service.list()[0]).toMatchObject({ state: 'ready', mode: 'command' }), { timeout: 5000 })
     await ready()
     expect(service.list()[0].reason).toBeUndefined()
+    const durations: Array<[number, string]> = [
+      [-1, '0.00 s'], [0, '0.00 s'], [0.25, '0.25 s'], [59.99, '59.99 s'],
+      [60, '1 m 00 s'], [61.9, '1 m 01 s'], [3599.99, '59 m 59 s'],
+      [3600, '1 h 00 m 00 s'], [3661.8, '1 h 01 m 01 s'],
+      [86399.9, '23 h 59 m 59 s'], [86400, '1 d 00 h 00 m 00 s'],
+      [90061.9, '1 d 01 h 01 m 01 s'], [172800, '2 d 00 h 00 m 00 s'],
+    ]
+    for (const [i, [seconds, expected]] of durations.entries()) {
+      await service.submit(id, `_terminal_proof_duration ${seconds}; print -r -- "duration-${i}:$REPLY"`)
+      await ready()
+      await vi.waitFor(() => expect(output).toContain(`duration-${i}:${expected}`))
+    }
     const start = output.length
     for (let i = 0; i < 3; i++) {
       const files = await service.complete(id, 'cat space', 9)

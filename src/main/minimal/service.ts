@@ -356,6 +356,29 @@ export class DesktopService {
     return result
   }
   open(workspace: string, path?: string): Promise<Snapshot> {
+    return this.loadSession(workspace, path).then(async (next) => {
+      const session = this.selected(next.handle)
+      this.authorize(workspace)
+      if (session.mutating || !session.rpc) throw new Error('Session is changing; try again')
+      if (this.deleting.has(session.snapshot.state.sessionFile!)) throw new Error('Session is being deleted')
+      this.current = session.snapshot
+      this.preferences.activeWorkspace = workspace
+      this.preferences.activeSession = session.snapshot.state.sessionFile
+      await this.serial(() => this.persist())
+      this.changed(session)
+      return this.project(session)
+    })
+  }
+  async renameSession(workspace: string, path: string, name: string): Promise<Snapshot> {
+    if (typeof name !== 'string' || !name.trim() || name.length > 200)
+      throw new Error('Name must be 1–200 characters')
+    if (typeof path !== 'string' || !path) throw new Error('Invalid session path')
+    // Share opening/writer ownership, but never select the rename target.
+    const next = await this.loadSession(workspace, path)
+    await this.command('set_session_name', { name }, next.handle)
+    return this.project(this.selected(next.handle))
+  }
+  private loadSession(workspace: string, path?: string): Promise<Snapshot> {
     this.assertRunning()
     const key = path ? `${workspace}\0${path}` : randomUUID()
     const pending = this.opening.get(key)
@@ -366,12 +389,15 @@ export class DesktopService {
   }
   private async openSession(workspace: string, path?: string): Promise<Snapshot> {
     this.authorize(workspace)
-    if (path && !(await this.sessions(workspace)).some((s) => s.path === path))
+    // A live writer already owns its validated workspace/path; archive discovery
+    // is only needed for cold opens. Re-read the pool below after any disk await.
+    const live = path && [...this.pool.values()].some(s => s.rpc && s.snapshot.workspace === workspace && s.snapshot.state.sessionFile === path)
+    if (path && !live && !(await this.sessions(workspace)).some((s) => s.path === path))
       throw new Error('Session does not belong to this workspace')
     this.assertRunning()
     this.authorize(workspace)
     if (path && this.deleting.has(path)) throw new Error('Session is being deleted')
-    let session = [...this.pool.values()].find((s) => path && s.snapshot.state.sessionFile === path)
+    let session = [...this.pool.values()].find((s) => path && s.snapshot.workspace === workspace && s.snapshot.state.sessionFile === path)
     if (session?.mutating) throw new Error('Session is changing; try again')
     if (session && !session.rpc) {
       await this.stop(session)
@@ -427,11 +453,6 @@ export class DesktopService {
     this.authorize(workspace)
     if (this.pool.get(session.handle) !== session || !session.rpc)
       throw new Error('Session was closed while opening')
-    this.current = session.snapshot
-    this.preferences.activeWorkspace = workspace
-    this.preferences.activeSession = session.snapshot.state.sessionFile
-    await this.serial(() => this.persist())
-    this.changed(session)
     return this.project(session)
   }
   private project(session: LiveSession): Snapshot {

@@ -236,6 +236,91 @@ describe('DesktopService session pool', () => {
     await service.shutdown()
     expect(native.processes.every((p) => p.stop.mock.calls.length === 1)).toBe(true)
   })
+  it('switches live sessions without listing history or starting another writer, while retaining ownership guards', async () => {
+    const { service, dir } = await fixture()
+    const a = await service.open(dir), b = await service.open(dir)
+    const list = vi.fn(async () => [])
+    ;(service as any).sdk.SessionManager.list = list
+    await service.command('prompt', { message: 'keep working' }, a.handle)
+    expect((await service.open(dir, a.state.sessionFile)).handle).toBe(a.handle)
+    expect((await service.open(dir, b.state.sessionFile)).handle).toBe(b.handle)
+    expect(list).not.toHaveBeenCalled()
+    expect(native.processes).toHaveLength(2)
+    expect(service.runningSessions()[0].status).toBe('working')
+    expect(native.processes.every(p => !p.stop.mock.calls.length)).toBe(true)
+    const other = join(dir, 'other')
+    service.preferences.workspaces.push({ path: other, name: 'Other' })
+    await expect(service.open(other, a.state.sessionFile)).rejects.toThrow('does not belong')
+    await expect(service.open('/unregistered', a.state.sessionFile)).rejects.toThrow('not registered')
+    const live = (service as any).pool.get(a.handle)
+    live.mutating = true
+    await expect(service.open(dir, a.state.sessionFile)).rejects.toThrow('changing')
+    live.mutating = false
+    ;(service as any).deleting.add(a.state.sessionFile)
+    await expect(service.open(dir, a.state.sessionFile)).rejects.toThrow('being deleted')
+    ;(service as any).deleting.clear()
+    await service.shutdown()
+  })
+  it('does not select a warm writer that begins closing before activation resumes', async () => {
+    const { service, dir } = await fixture()
+    const a = await service.open(dir)
+    let release!: () => void
+    native.processes[0].stop.mockImplementation(() => new Promise<void>(resolve => { release = resolve }))
+    const opening = service.open(dir, a.state.sessionFile)
+    const closing = service.closeSession(a.handle)
+    try {
+      const result = await opening.then(() => 'selected', error => String(error))
+      expect(result).toContain('changing')
+      expect(native.processes).toHaveLength(1)
+    } finally {
+      release()
+      await closing
+      await service.shutdown()
+    }
+  })
+  it('revalidates cold sessions after a list read, even when another writer opens during that read', async () => {
+    const { service, dir } = await fixture()
+    const path = join(dir, 'archived.jsonl')
+    let finish!: (items: any[]) => void
+    ;(service as any).sdk.SessionManager.list = vi.fn(() => new Promise<any[]>(resolve => { finish = resolve }))
+    const opening = service.open(dir, path)
+    const other = await service.open(dir)
+    // Simulate native ownership reconciliation while archive validation is pending.
+    const live = (service as any).pool.get(other.handle)
+    live.snapshot.state.sessionFile = path
+    native.processes[0].path = path
+    finish([{ id: 'archived', path, modified: Date.now() }])
+    expect((await opening).handle).toBe(other.handle)
+    expect(native.processes).toHaveLength(1)
+    await service.shutdown()
+  })
+  it('still discovers archived sessions after an inactive writer exits', async () => {
+    const { service, dir } = await fixture()
+    const a = await service.open(dir)
+    native.processes[0].emit({ type: 'desktop_error', message: 'Disconnected' })
+    await vi.waitFor(() => expect((service as any).pool.get(a.handle).mutating).toBe(false))
+    const list = vi.fn(async () => [])
+    ;(service as any).sdk.SessionManager.list = list
+    const reopened = await service.open(dir, a.state.sessionFile)
+    expect(reopened.handle).not.toBe(a.handle)
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(native.processes).toHaveLength(2)
+    expect(native.processes[0].stop).toHaveBeenCalledTimes(1)
+    await service.shutdown()
+  })
+  it('rejects a cold open when its workspace is removed while history discovery is pending', async () => {
+    const { service, dir } = await fixture()
+    const path = join(dir, 'archived.jsonl')
+    let finish!: (items: any[]) => void
+    ;(service as any).sdk.SessionManager.list = () => new Promise<any[]>(resolve => { finish = resolve })
+    const opening = service.open(dir, path)
+    const rejected = expect(opening).rejects.toThrow('not registered')
+    await service.removeWorkspace(dir, true)
+    finish([{ id: 'archived', path, modified: Date.now() }])
+    await rejected
+    expect(native.processes).toHaveLength(0)
+    await service.shutdown()
+  })
   it('protects accepted prompts before agent_start from close, reload, fork, delete and workspace removal', async () => {
     const { service, dir, trash } = await fixture()
     const a = await service.open(dir)
